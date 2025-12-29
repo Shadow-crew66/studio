@@ -41,7 +41,7 @@ export function Proposal() {
   const [windowSize, setWindowSize] = useState({ width: 0, height: 0 });
   const [isClient, setIsClient] = useState(false);
 
-  const proposalRingImage = PlaceHolderImages.find(p => p.id === "proposal-ring");
+  const proposalRingImage = PlaceHolderImages[0];
 
   useEffect(() => {
     setIsClient(true);
