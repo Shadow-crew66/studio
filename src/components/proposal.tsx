@@ -1,15 +1,9 @@
 "use client";
 
-import { useState, useEffect, Fragment, Suspense } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Confetti from "react-confetti";
 import { Button } from "@/components/ui/button";
-import dynamic from 'next/dynamic';
-
-const Ring = dynamic(() => import('@/components/ring').then(mod => mod.Ring), {
-  ssr: false,
-  loading: () => <div className="w-64 h-64" />,
-});
 
 const BouncingHeart = () => (
   <motion.div
@@ -112,11 +106,6 @@ export function Proposal() {
         <h1 className="text-4xl md:text-6xl font-headline text-primary-foreground/90 mb-4">
           I knew you couldn't say no! ❤️
         </h1>
-        <div className="w-64 h-64">
-           <Suspense fallback={<div className="w-full h-full bg-transparent" />}>
-              <Ring />
-            </Suspense>
-        </div>
         <motion.p 
           className="text-lg md:text-xl font-body text-primary-foreground/80 mt-4 max-w-md"
           initial={{ opacity: 0 }}
