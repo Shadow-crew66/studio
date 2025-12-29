@@ -3,9 +3,7 @@
 import { useState, useEffect, Fragment } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Confetti from "react-confetti";
-import { analyzeAndAdapt, type AdaptivePersuasionInput } from "@/ai/flows/adaptive-persuasion";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
 
 const BouncingHeart = () => (
   <motion.div
@@ -30,18 +28,16 @@ const BouncingHeart = () => (
   </motion.div>
 );
 
+const fallbackTexts = ["Are you sure?", "Really??", "Think again!", "You're breaking my heart :(", "Last chance!"];
+
 export function Proposal() {
-  const { toast } = useToast();
   const [noClickCount, setNoClickCount] = useState(0);
   const [yesButtonScale, setYesButtonScale] = useState(1);
   const [noButtonText, setNoButtonText] = useState("No");
   const [noButtonPosition, setNoButtonPosition] = useState<{ top: number; left: number } | null>(null);
-  const [animationSpeedMultiplier, setAnimationSpeedMultiplier] = useState(1);
   const [isYesClicked, setIsYesClicked] = useState(false);
-  const [startTime] = useState(Date.now());
   const [windowSize, setWindowSize] = useState({ width: 0, height: 0 });
   const [isClient, setIsClient] = useState(false);
-  const [isProcessingNo, setIsProcessingNo] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
@@ -62,39 +58,14 @@ export function Proposal() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const handleNoClick = async () => {
-    if (isProcessingNo) return;
-    setIsProcessingNo(true);
-
-    const timeOnPage = Math.round((Date.now() - startTime) / 1000);
-    const input: AdaptivePersuasionInput = {
-      noButtonClicks: noClickCount + 1,
-      timeOnPage,
-      previousText: noButtonText,
-    };
-    
-    try {
-        const result = await analyzeAndAdapt(input);
-        setNoButtonText(result.newText);
-        setAnimationSpeedMultiplier(result.animationSpeedMultiplier);
-    } catch (e) {
-        console.error("AI adaptation failed:", e);
-        toast({
-          title: "An error occurred",
-          description: "Could not get a witty response. Trying again...",
-          variant: "destructive",
-        });
-        const fallbackTexts = ["Are you sure?", "Really??", "Think again!", "You're breaking my heart :(", "Last chance!"];
-        setNoButtonText(fallbackTexts[noClickCount % fallbackTexts.length]);
-    }
-
+  const handleNoClick = () => {
+    setNoButtonText(fallbackTexts[noClickCount % fallbackTexts.length]);
     setNoClickCount((prev) => prev + 1);
     setYesButtonScale((prev) => prev * 1.2);
 
     const newTop = Math.random() * (window.innerHeight - 150) + 50;
     const newLeft = Math.random() * (window.innerWidth - 200) + 50;
     setNoButtonPosition({ top: newTop, left: newLeft });
-    setIsProcessingNo(false);
   };
 
   const handleYesClick = () => {
@@ -157,16 +128,15 @@ export function Proposal() {
             initial={{ top: noButtonPosition.top, left: noButtonPosition.left, scale: 1, opacity: 1 }}
             animate={{ top: noButtonPosition.top, left: noButtonPosition.left }}
             exit={{ scale: 0, opacity: 0, transition: { duration: 0.3 } }}
-            transition={{ type: "spring", damping: 15, stiffness: 200, duration: 0.5 * animationSpeedMultiplier }}
+            transition={{ type: "spring", damping: 15, stiffness: 200, duration: 0.5 }}
           >
             <Button
               variant="destructive"
               size="lg"
               className="text-lg px-6 py-4 whitespace-nowrap"
               onClick={handleNoClick}
-              disabled={isProcessingNo}
             >
-              {isProcessingNo ? 'Thinking...' : noButtonText}
+              {noButtonText}
             </Button>
           </motion.div>
         )}
