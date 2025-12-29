@@ -33,7 +33,7 @@ function Diamond(props: JSX.IntrinsicElements['group']) {
 
   return (
     <group ref={ref} {...props} dispose={null}>
-      <mesh geometry={nodes.diamond.geometry} material={diamondMaterial} />
+      <mesh geometry={(nodes as any).diamond.geometry} material={diamondMaterial} />
     </group>
   )
 }
@@ -50,7 +50,7 @@ function Model() {
 
   return (
     <group position={[0, -5, 0]}>
-        <mesh geometry={nodes.ring.geometry} material={goldMaterial} receiveShadow castShadow />
+        <mesh geometry={(nodes as any).ring.geometry} material={goldMaterial} receiveShadow castShadow />
         <Diamond position={[0, 17, 0]} scale={[8, 8, 8]} />
     </group>
   )
