@@ -4,6 +4,7 @@ import { useState, useEffect, Fragment } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Confetti from "react-confetti";
 import { Button } from "@/components/ui/button";
+import Image from "next/image";
 
 const BouncingHeart = () => (
   <motion.div
@@ -101,11 +102,34 @@ export function Proposal() {
         initial={{ opacity: 0, scale: 0.5 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.5 }}
-        className="text-center"
+        className="text-center flex flex-col items-center"
       >
-        <h1 className="text-4xl md:text-7xl font-headline text-primary-foreground/90">
+        <h1 className="text-4xl md:text-6xl font-headline text-primary-foreground/90 mb-4">
           I knew you couldn't say no! ❤️
         </h1>
+        <motion.div 
+          className="my-6"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5, duration: 0.8, type: "spring" }}
+        >
+            <Image 
+              src="https://picsum.photos/seed/proposal-ring/300/300"
+              alt="Diamond Ring"
+              width={300}
+              height={300}
+              className="rounded-full shadow-lg"
+              data-ai-hint="diamond ring"
+            />
+        </motion.div>
+        <motion.p 
+          className="text-lg md:text-xl font-body text-primary-foreground/80 mt-4 max-w-md"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1, duration: 1 }}
+        >
+          "With this ring, all my today and all my tomorrows are yours. Will you make me the happiest person alive?"
+        </motion.p>
       </motion.div>
     </>
   );
