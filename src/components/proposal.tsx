@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Confetti from "react-confetti";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
+import { PlaceHolderImages } from "@/lib/placeholder-images";
 
 const BouncingHeart = () => (
   <motion.div
@@ -39,6 +40,8 @@ export function Proposal() {
   const [isYesClicked, setIsYesClicked] = useState(false);
   const [windowSize, setWindowSize] = useState({ width: 0, height: 0 });
   const [isClient, setIsClient] = useState(false);
+
+  const proposalRingImage = PlaceHolderImages.find(p => p.id === "proposal-ring");
 
   useEffect(() => {
     setIsClient(true);
@@ -113,14 +116,16 @@ export function Proposal() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5, duration: 0.8, type: "spring" }}
         >
+          {proposalRingImage && (
             <Image 
-              src="https://picsum.photos/seed/proposal-ring/300/300"
-              alt="Diamond Ring"
+              src={proposalRingImage.imageUrl}
+              alt={proposalRingImage.description}
               width={300}
               height={300}
               className="rounded-full shadow-lg"
-              data-ai-hint="diamond ring"
+              data-ai-hint={proposalRingImage.imageHint}
             />
+          )}
         </motion.div>
         <motion.p 
           className="text-lg md:text-xl font-body text-primary-foreground/80 mt-4 max-w-md"
