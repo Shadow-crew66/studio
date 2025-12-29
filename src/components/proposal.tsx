@@ -121,7 +121,7 @@ export function Proposal() {
       </motion.div>
 
       <AnimatePresence>
-        {!isYesClicked && noClickCount < 5 && noButtonPosition && (
+        {!isYesClicked && noButtonPosition && (
           <motion.div
             key={noClickCount}
             className="absolute"
