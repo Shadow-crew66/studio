@@ -3,7 +3,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 
 export const metadata: Metadata = {
-  title: "Heart's Persuasion",
+  title: "The Promise",
   description: 'An interactive proposal app',
 };
 
