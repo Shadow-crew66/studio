@@ -13,18 +13,20 @@ function PersonalizeForm() {
   const [fromName, setFromName] = useState('');
   const [toName, setToName] = useState('');
   const [generatedUrl, setGeneratedUrl] = useState('');
+  const [isCopied, setIsCopied] = useState(false);
 
   const generateUrl = () => {
     if (fromName && toName) {
       const url = `${window.location.origin}${window.location.pathname}?from=${encodeURIComponent(fromName)}&to=${encodeURIComponent(toName)}`;
       setGeneratedUrl(url);
+      setIsCopied(false);
     }
   };
 
   const copyUrl = () => {
     if (!generatedUrl) return;
     navigator.clipboard.writeText(generatedUrl);
-    alert('Link copied to clipboard!');
+    setIsCopied(true);
   };
 
   return (
@@ -50,7 +52,9 @@ function PersonalizeForm() {
             <Label>Your special link:</Label>
             <div className="flex gap-2">
               <Input type="text" readOnly value={generatedUrl} className="bg-muted" />
-              <Button onClick={copyUrl} variant="secondary">Copy</Button>
+              <Button onClick={copyUrl} variant="secondary" disabled={isCopied}>
+                {isCopied ? 'Copied!' : 'Copy'}
+              </Button>
             </div>
             <p className="text-xs text-muted-foreground">Send this link to your partner!</p>
           </div>
