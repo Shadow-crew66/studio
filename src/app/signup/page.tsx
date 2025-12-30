@@ -5,13 +5,13 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth, useFirestore } from '@/firebase';
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { createUserWithEmailAndPassword, updateProfile, signInWithPopup, GoogleAuthProvider, OAuthProvider } from 'firebase/auth';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, ChromeIcon, AppleIcon } from 'lucide-react';
 
 export default function SignupPage() {
   const [username, setUsername] = useState('');
@@ -22,6 +22,45 @@ export default function SignupPage() {
   const auth = useAuth();
   const firestore = useFirestore();
   const router = useRouter();
+
+  const handleSocialLogin = async (providerName: 'google' | 'apple') => {
+    setError(null);
+    if (!auth || !firestore) {
+      setError("Authentication service is not available.");
+      return;
+    }
+
+    const provider = providerName === 'google' 
+      ? new GoogleAuthProvider()
+      : new OAuthProvider('apple.com');
+
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+
+      // Check if user document already exists
+      const userRef = doc(firestore, 'users', user.uid);
+      const userSnap = await getDoc(userRef);
+
+      if (!userSnap.exists()) {
+        // Create user document on first social login
+        await setDoc(userRef, {
+          id: user.uid,
+          username: user.displayName || user.email,
+          email: user.email,
+          createdAt: new Date().toISOString(),
+        });
+      }
+      router.push('/');
+    } catch (err: any) {
+      if (err.code === 'auth/account-exists-with-different-credential') {
+        setError('An account already exists with the same email address but different sign-in credentials.');
+      } else {
+        setError(err.message);
+      }
+    }
+  };
+
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,6 +112,24 @@ export default function SignupPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <Button variant="outline" onClick={() => handleSocialLogin('google')}>
+              <ChromeIcon className="mr-2 h-4 w-4" /> Google
+            </Button>
+            <Button variant="outline" onClick={() => handleSocialLogin('apple')}>
+              <AppleIcon className="mr-2 h-4 w-4" /> Apple
+            </Button>
+          </div>
+          <div className="relative mb-4">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">
+                Or continue with
+              </span>
+            </div>
+          </div>
           <form onSubmit={handleSignup} className="grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="username">Your Name</Label>
