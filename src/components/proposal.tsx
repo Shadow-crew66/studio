@@ -46,7 +46,11 @@ export function Proposal({ from, to, letter, proposalId, senderId }: { from: str
   
   const firestore = useFirestore();
 
-  const defaultLetter = `With this ring, all my today and all my tomorrows are yours. Will you make me the happiest person alive?`;
+  const defaultLetter = `My dearest,
+
+They say home isn't a place, but a person. With you, I've finally found my home. Every moment with you feels like a beautiful dream I never want to wake up from.
+
+Will you make my dream last forever and marry me?`;
 
 
   useEffect(() => {
