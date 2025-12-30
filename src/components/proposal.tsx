@@ -46,7 +46,7 @@ export function Proposal({ from, to, letter, proposalId, senderId }: { from: str
   
   const firestore = useFirestore();
 
-  const defaultLetter = `My dearest,
+  const defaultLetter = `My dearest ${to},
 
 They say home isn't a place, but a person. With you, I've finally found my home. Every moment with you feels like a beautiful dream I never want to wake up from.
 
