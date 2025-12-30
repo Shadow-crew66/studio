@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Proposal } from '@/components/proposal';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,6 +22,7 @@ function PersonalizeForm() {
   };
 
   const copyUrl = () => {
+    if (!generatedUrl) return;
     navigator.clipboard.writeText(generatedUrl);
     alert('Link copied to clipboard!');
   };
@@ -58,17 +60,24 @@ function PersonalizeForm() {
   );
 }
 
-
-export default function Home() {
+function ProposalLoader() {
   const searchParams = useSearchParams();
   const from = searchParams.get('from');
   const to = searchParams.get('to');
 
-  const showProposal = from && to;
+  if (from && to) {
+    return <Proposal from={from} to={to} />;
+  }
 
+  return <PersonalizeForm />;
+}
+
+export default function Home() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-[#ff9a9e] to-[#fecfef] p-4 overflow-hidden">
-      {showProposal ? <Proposal from={from} to={to} /> : <PersonalizeForm />}
+      <Suspense fallback={<div>Loading...</div>}>
+        <ProposalLoader />
+      </Suspense>
     </main>
   );
 }
