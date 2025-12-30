@@ -1,0 +1,120 @@
+rules_version = '2';
+
+/**
+ * @name Heart's Persuasion Firestore Security Rules
+ * @author AI Security Architect
+ * @version 1.0.0
+ *
+ * @description
+ * This ruleset enforces a strict user-ownership security model for the Heart's
+ * Persuasion application. All user-related data, including profiles, proposals,
+ * and notifications, is stored in user-specific document trees, making authorization
+ * straightforward and secure.
+ *
+ * Core Philosophy:
+ * The guiding principle is "path-based authorization." A user's authenticated UID
+ * must match the `{userId}` segment in the document path to gain access. This
+ * approach is highly performant and eliminates the need for complex, slow, or
+ * insecure server-side queries (`get()` or `exists()`) within the rules.
+ *
+ * Data Structure:
+ * - /users/{userId}: Root document for each user's profile data.
+ * - /users/{userId}/proposals/{proposalId}: A user's copy of a proposal they sent or received.
+ * - /users/{userId}/notifications/{notificationId}: A user's private notifications.
+ *
+ * Key Security Decisions:
+ * - No Public Data: There are no publicly readable collections. All data access requires authentication.
+ * - No User Listing: It is not possible to list or query the top-level `/users` collection.
+ * - Denormalization for Authorization: To secure proposals between two parties (sender and
+ *   recipient), the application is expected to create a separate copy of the proposal document
+ *   for each user involved (e.g., one under the sender's path and one under the recipient's).
+ *   This ensures that read, list, and delete operations can be secured simply by checking
+ *   the document path, which is highly secure and performant for mobile clients.
+ * - Self-Service Data Management: Users are empowered to manage their own data. They can create
+ *   their own user profile and manage their own copies of proposals and notifications.
+ */
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ----------------------------------------------------------------------
+    // Helper Functions
+    // ----------------------------------------------------------------------
+
+    /**
+     * Checks if the user is authenticated.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * Checks if the currently authenticated user's UID matches the provided userId.
+     * This is the foundation of the ownership-based security model.
+     * @param userId The user ID to check against the request's auth UID.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // ----------------------------------------------------------------------
+    // User Profile Rules
+    // ----------------------------------------------------------------------
+
+    /**
+     * @description Controls access to a user's own profile document.
+     * @path /users/{userId}
+     * @allow (create) An authenticated user creating their own user document for the first time.
+     * @allow (get, update, delete) An authenticated user accessing or modifying their own profile.
+     * @deny (list) Any user, to prevent enumeration of all application users.
+     * @deny (get) An authenticated user attempting to read another user's profile.
+     * @principle Enforces strict data ownership and allows for self-creation of a user's root document.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isOwner(userId) && resource != null && request.resource.data.id == resource.data.id;
+      allow delete: if isOwner(userId) && resource != null;
+    }
+
+    // ----------------------------------------------------------------------
+    // Proposal Rules
+    // ----------------------------------------------------------------------
+
+    /**
+     * @description Secures a user's copy of a proposal they have sent or received.
+     * @path /users/{userId}/proposals/{proposalId}
+     * @allow (create) The sender of a proposal creating the document in their own or the recipient's subcollection.
+     * @allow (get, list, update, delete) The user accessing proposals within their own data tree.
+     * @deny (get) User 'A' attempting to read a proposal from inside user 'B's data tree.
+     * @deny (update) User 'A' attempting to modify a proposal within user 'B's data tree.
+     * @principle Path-based ownership. Assumes the application denormalizes/duplicates the proposal document
+     * for both the sender and recipient to ensure simple, secure, and performant access control.
+     */
+    match /users/{userId}/proposals/{proposalId} {
+      allow get, list: if isOwner(userId);
+      allow create: if isSignedIn() && request.resource.data.senderId == request.auth.uid && request.resource.data.id == proposalId;
+      allow update: if isOwner(userId) && resource != null;
+      allow delete: if isOwner(userId) && resource != null;
+    }
+
+    // ----------------------------------------------------------------------
+    // Notification Rules
+    // ----------------------------------------------------------------------
+
+    /**
+     * @description Secures a user's private notifications.
+     * @path /users/{userId}/notifications/{notificationId}
+     * @allow (get, list, create, update, delete) A user managing notifications within their own data tree.
+     * @deny (get) A user trying to read another user's notifications.
+     * @deny (list) A user trying to list another user's notifications.
+     * @principle Path-based ownership restricts all access to a user's own private subcollection.
+     */
+    match /users/{userId}/notifications/{notificationId} {
+      allow get, list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.userId == userId && request.resource.data.id == notificationId;
+      allow update: if isOwner(userId) && resource != null;
+      allow delete: if isOwner(userId) && resource != null;
+    }
+  }
+}

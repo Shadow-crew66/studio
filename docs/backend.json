@@ -1,0 +1,189 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the Heart's Persuasion app.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the User entity."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the user.",
+          "format": "email"
+        },
+        "username": {
+          "type": "string",
+          "description": "Username of the user."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the user account was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "email",
+        "username",
+        "createdAt"
+      ]
+    },
+    "Proposal": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Proposal",
+      "type": "object",
+      "description": "Represents a proposal within the Heart's Persuasion app.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Proposal entity."
+        },
+        "senderId": {
+          "type": "string",
+          "description": "Reference to the User who sent the proposal. (Relationship: User 1:N Proposal)"
+        },
+        "recipientId": {
+          "type": "string",
+          "description": "Reference to the User who received the proposal. (Relationship: User 1:N Proposal)"
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the proposal (e.g., pending, accepted, rejected)."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the proposal was created.",
+          "format": "date-time"
+        },
+        "acceptedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the proposal was accepted.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "senderId",
+        "recipientId",
+        "status",
+        "createdAt"
+      ]
+    },
+    "Notification": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Notification",
+      "type": "object",
+      "description": "Represents a notification related to a proposal.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Notification entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to the User who receives the notification. (Relationship: User 1:N Notification)"
+        },
+        "proposalId": {
+          "type": "string",
+          "description": "Reference to the Proposal the notification is about. (Relationship: Proposal 1:N Notification)"
+        },
+        "type": {
+          "type": "string",
+          "description": "Type of notification (e.g., proposal_received, proposal_accepted)."
+        },
+        "message": {
+          "type": "string",
+          "description": "Message content of the notification."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the notification was created.",
+          "format": "date-time"
+        },
+        "read": {
+          "type": "boolean",
+          "description": "Indicates whether the notification has been read or not."
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "proposalId",
+        "type",
+        "message",
+        "createdAt"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user profiles. Path-based ownership ensures only the user can access their own profile data.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/proposals/{proposalId}",
+        "definition": {
+          "entityName": "Proposal",
+          "schema": {
+            "$ref": "#/backend/entities/Proposal"
+          },
+          "description": "Stores proposals associated with a specific user. Path-based ownership ensures that only the involved users (sender and recipient) can access the proposal data. Includes denormalized 'senderId' and 'recipientId' for authorization independence.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user who sent or received the proposal."
+            },
+            {
+              "name": "proposalId",
+              "description": "The unique identifier of the proposal."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/notifications/{notificationId}",
+        "definition": {
+          "entityName": "Notification",
+          "schema": {
+            "$ref": "#/backend/entities/Notification"
+          },
+          "description": "Stores notifications for a specific user. Path-based ownership ensures only the user can access their notifications. Includes denormalized 'userId' for authorization independence.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user receiving the notification."
+            },
+            {
+              "name": "notificationId",
+              "description": "The unique identifier of the notification."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore data structure is designed to ensure authorization independence, clarity, and scalability. It uses path-based ownership for user-related data and denormalization to avoid complex security rules with `get()` calls.  The structure supports secure `list` operations (QAPs) by segregating data into collections with homogeneous security postures. Specifically, proposals and notifications are placed under user-specific collections to leverage path-based authorization, ensuring that only the intended user can access them. This eliminates the need for complex filtering in rules and maintains data integrity. The use of explicit IDs and timestamps enhances predictability and debuggability."
+  }
+}
