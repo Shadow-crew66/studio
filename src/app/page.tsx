@@ -47,32 +47,31 @@ function PersonalizeForm() {
       setIsGenerating(true);
       try {
         const publicProposalsRef = collection(firestore, 'proposals');
-        const publicDocRef = await addDoc(publicProposalsRef, {
+        
+        // Prepare the proposal data
+        const newProposalData = {
           senderId: user.uid,
           senderName: user.displayName || user.email,
           recipientName: toName,
           letter: letter,
-          status: 'pending',
+          status: 'pending' as const,
           createdAt: new Date().toISOString(),
-        });
-        const proposalId = publicDocRef.id;
-
-        // Set the ID in the document itself
-        await setDoc(doc(firestore, 'proposals', proposalId), { id: proposalId }, { merge: true });
-
-
-        const newProposal = {
-          id: proposalId,
-          senderId: user.uid,
-          senderName: user.displayName || user.email,
-          recipientName: toName,
-          letter: letter,
-          status: 'pending',
-          createdAt: new Date().toISOString(),
+          id: '' // will be set after doc creation
         };
 
+        // Create the public proposal document
+        const publicDocRef = await addDoc(publicProposalsRef, newProposalData);
+        const proposalId = publicDocRef.id;
+
+        // Update the public document with its own ID
+        await setDoc(publicDocRef, { id: proposalId }, { merge: true });
+        
+        // Update the proposal data with the final ID
+        const finalProposal = { ...newProposalData, id: proposalId };
+
+        // Create the private proposal document for the user
         const userProposalRef = doc(firestore, `users/${user.uid}/proposals/${proposalId}`);
-        await setDoc(userProposalRef, newProposal);
+        await setDoc(userProposalRef, finalProposal);
 
         const url = new URL(`${window.location.origin}/proposal/${proposalId}`);
         setGeneratedUrl(url.toString());

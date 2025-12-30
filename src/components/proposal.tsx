@@ -85,17 +85,22 @@ export function Proposal({ from, to, letter, proposalId, senderId }: { from: str
   const handleYesClick = async () => {
     setIsYesClicked(true);
     setShowNoButton(false);
-    if (firestore && senderId) {
-        const publicProposalRef = doc(firestore, 'proposals', proposalId);
+    if (firestore) {
+      const publicProposalRef = doc(firestore, 'proposals', proposalId);
+      
+      const updatedData = { 
+        status: 'accepted', 
+        acceptedAt: new Date().toISOString() 
+      };
+
+      // Only update the public proposal. The sender's dashboard reads this public record.
+      updateDocumentNonBlocking(publicProposalRef, updatedData);
+
+      // Also update the sender's private copy for consistency.
+      if (senderId) {
         const userProposalRef = doc(firestore, `users/${senderId}/proposals`, proposalId);
-
-        const updatedData = { 
-          status: 'accepted', 
-          acceptedAt: new Date().toISOString() 
-        };
-
-        updateDocumentNonBlocking(publicProposalRef, updatedData);
         updateDocumentNonBlocking(userProposalRef, updatedData);
+      }
     }
   };
 
