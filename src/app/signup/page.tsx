@@ -1,11 +1,11 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth, useFirestore } from '@/firebase';
-import { createUserWithEmailAndPassword, updateProfile, signInWithPopup, GoogleAuthProvider, OAuthProvider } from 'firebase/auth';
+import { createUserWithEmailAndPassword, updateProfile, signInWithRedirect, getRedirectResult, GoogleAuthProvider, OAuthProvider } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,9 +23,43 @@ export default function SignupPage() {
   const firestore = useFirestore();
   const router = useRouter();
 
+  useEffect(() => {
+    if (!auth || !firestore) return;
+
+    const handleRedirectResult = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (result) {
+          const user = result.user;
+          const userRef = doc(firestore, 'users', user.uid);
+          const userSnap = await getDoc(userRef);
+
+          if (!userSnap.exists()) {
+            await setDoc(userRef, {
+              id: user.uid,
+              username: user.displayName || user.email,
+              email: user.email,
+              createdAt: new Date().toISOString(),
+            });
+          }
+          router.push('/');
+        }
+      } catch (err: any) {
+        if (err.code === 'auth/account-exists-with-different-credential') {
+          setError('An account already exists with the same email address but different sign-in credentials.');
+        } else {
+          setError(err.message);
+        }
+      }
+    };
+
+    handleRedirectResult();
+  }, [auth, firestore, router]);
+
+
   const handleSocialLogin = async (providerName: 'google' | 'apple') => {
     setError(null);
-    if (!auth || !firestore) {
+    if (!auth) {
       setError("Authentication service is not available.");
       return;
     }
@@ -34,31 +68,8 @@ export default function SignupPage() {
       ? new GoogleAuthProvider()
       : new OAuthProvider('apple.com');
 
-    try {
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
-
-      // Check if user document already exists
-      const userRef = doc(firestore, 'users', user.uid);
-      const userSnap = await getDoc(userRef);
-
-      if (!userSnap.exists()) {
-        // Create user document on first social login
-        await setDoc(userRef, {
-          id: user.uid,
-          username: user.displayName || user.email,
-          email: user.email,
-          createdAt: new Date().toISOString(),
-        });
-      }
-      router.push('/');
-    } catch (err: any) {
-      if (err.code === 'auth/account-exists-with-different-credential') {
-        setError('An account already exists with the same email address but different sign-in credentials.');
-      } else {
-        setError(err.message);
-      }
-    }
+    // Use signInWithRedirect instead of signInWithPopup
+    await signInWithRedirect(auth, provider);
   };
 
 
