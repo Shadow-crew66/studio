@@ -4,7 +4,7 @@ rules_version = '2';
 /**
  * @name Heart's Persuasion Firestore Security Rules
  * @author AI Security Architect
- * @version 1.1.0
+ * @version 1.2.0
  *
  * @description
  * This ruleset enforces a strict user-ownership security model for the Heart's
@@ -30,6 +30,8 @@ rules_version = '2';
  *   to read a proposal. This is essential for the recipient's initial view.
  * - Secure Updates: Only authenticated users can create proposals. Updates to the public
  *   proposal's status (e.g., to 'accepted') are allowed to facilitate the acceptance flow.
+ * - Deletion Control: The original sender of a proposal is the only one who can delete
+ *   the public copy, ensuring data integrity.
  * - No User Listing: It is not possible to list or query the top-level `/users` or `/proposals` collections.
  * - Denormalization for Authorization: To secure proposals between two parties (sender and
  *   recipient), the application is expected to create a separate copy of the proposal document
@@ -58,6 +60,14 @@ service cloud.firestore {
      */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * Checks if the requestor is the sender of a specific proposal.
+     * @param proposalId The ID of the proposal to check.
+     */
+    function isProposalSender(proposalId) {
+      return isSignedIn() && get(/databases/$(database)/documents/proposals/$(proposalId)).data.senderId == request.auth.uid;
     }
 
     // ----------------------------------------------------------------------
@@ -111,15 +121,15 @@ service cloud.firestore {
      * @allow (get) Anyone can read a proposal if they have the ID.
      * @allow (create) Only an authenticated user (the sender) can create a new proposal.
      * @allow (update) Anyone can update the status to 'accepted'. This is for the recipient.
+     * @allow (delete) The sender can delete their own public proposal.
      * @deny (list) Listing all public proposals is disallowed.
-     * @deny (delete) No one can delete a public proposal.
      */
     match /proposals/{proposalId} {
       allow get: if true;
       allow list: if false;
       allow create: if isSignedIn() && request.resource.data.senderId == request.auth.uid;
       allow update: if request.resource.data.status == 'accepted';
-      allow delete: if false;
+      allow delete: if isProposalSender(proposalId);
     }
 
 
