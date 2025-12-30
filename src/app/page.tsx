@@ -68,46 +68,47 @@ function PersonalizeForm({ user }: { user: User | null }) {
   };
   
   const generateUrl = async () => {
-    if (user && toName && firestore) {
-      setIsGenerating(true);
-      try {
-        const batch = writeBatch(firestore);
-        const publicProposalRef = doc(collection(firestore, 'proposals'));
-        const proposalId = publicProposalRef.id;
-        
-        const publicProposalData = {
-          id: proposalId,
-          senderId: user.uid,
-          senderName: user.displayName || user.email,
-          recipientName: toName,
-          letter: letter,
-          status: 'pending' as const,
-          createdAt: new Date().toISOString(),
-        };
-        batch.set(publicProposalRef, publicProposalData);
-        
-        const userProposalData = {
-          id: proposalId,
-          senderId: user.uid,
-          recipientName: toName,
-          createdAt: new Date().toISOString(),
-        };
-        const userProposalRef = doc(firestore, `users/${user.uid}/proposals/${proposalId}`);
-        batch.set(userProposalRef, userProposalData);
+    if (!user || !toName || !firestore) return;
 
-        await batch.commit();
+    setIsGenerating(true);
+    try {
+      const batch = writeBatch(firestore);
+      const publicProposalRef = doc(collection(firestore, 'proposals'));
+      const proposalId = publicProposalRef.id;
+      
+      const publicProposalData = {
+        id: proposalId,
+        senderId: user.uid,
+        senderName: user.displayName || user.email,
+        recipientName: toName,
+        letter: letter,
+        status: 'pending' as const,
+        createdAt: new Date().toISOString(),
+      };
+      batch.set(publicProposalRef, publicProposalData);
+      
+      const userProposalData = {
+        id: proposalId,
+        senderId: user.uid,
+        recipientName: toName,
+        status: 'pending' as const,
+        createdAt: new Date().toISOString(),
+      };
+      const userProposalRef = doc(firestore, `users/${user.uid}/proposals/${proposalId}`);
+      batch.set(userProposalRef, userProposalData);
 
-        const url = new URL(`${window.location.origin}/proposal/${proposalId}`);
-        setGeneratedUrl(url.toString());
-        setIsCopied(false);
-        setToName('');
-        setLetter('');
-        setKeywords('');
-      } catch (error) {
-        console.error("Error creating proposal:", error);
-      } finally {
-        setIsGenerating(false);
-      }
+      await batch.commit();
+
+      const url = new URL(`${window.location.origin}/proposal/${proposalId}`);
+      setGeneratedUrl(url.toString());
+      setIsCopied(false);
+      setToName('');
+      setLetter('');
+      setKeywords('');
+    } catch (error) {
+      console.error("Error creating proposal:", error);
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -117,20 +118,7 @@ function PersonalizeForm({ user }: { user: User | null }) {
     setIsCopied(true);
   };
   
-  const isFormDisabled = isGenerating || !user || isGeneratingLetter;
-
-  if (!user) {
-    return (
-        <Card className="w-full max-w-md">
-            <CardHeader>
-                <CardTitle>Create Your Proposal</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <p>Loading user...</p>
-            </CardContent>
-        </Card>
-    )
-  }
+  const isFormDisabled = isGenerating || !user;
 
   return (
     <Card className="w-full max-w-md">
@@ -141,31 +129,32 @@ function PersonalizeForm({ user }: { user: User | null }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="toName">Your Partner's Name</Label>
+            <Input id="toName" placeholder="Enter your partner's name" value={toName} onChange={(e) => setToName(e.target.value)} disabled={isFormDisabled} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="keywords">Keywords for AI</Label>
+            <Input id="keywords" placeholder="e.g., our first date, your smile, adventures" value={keywords} onChange={(e) => setKeywords(e.target.value)} disabled={isFormDisabled} />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="letter">Personal Letter</Label>
+            <div className="flex gap-2">
+              <Button onClick={handleGenerateLetter} className="w-full" variant="outline" size="sm" disabled={!toName || !keywords || isGeneratingLetter || isFormDisabled}>
+                <Sparkles className="mr-2 h-4 w-4" />
+                {isGeneratingLetter ? 'Generating...' : 'Generate with AI'}
+              </Button>
+            </div>
+            <Textarea id="letter" placeholder="Your AI-generated letter will appear here..." value={letter} onChange={(e) => setLetter(e.target.value)} rows={6} disabled={isFormDisabled}/>
+          </div>
+          
           <fieldset disabled={isFormDisabled} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="toName">Your Partner's Name</Label>
-              <Input id="toName" placeholder="Enter your partner's name" value={toName} onChange={(e) => setToName(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="keywords">Keywords for AI</Label>
-              <Input id="keywords" placeholder="e.g., our first date, your smile, adventures" value={keywords} onChange={(e) => setKeywords(e.target.value)} />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="letter">Personal Letter</Label>
-              <div className="flex gap-2">
-                <Button onClick={handleGenerateLetter} className="w-full" variant="outline" size="sm" disabled={!toName || !keywords || isGeneratingLetter}>
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  {isGeneratingLetter ? 'Generating...' : 'Generate with AI'}
-                </Button>
-              </div>
-              <Textarea id="letter" placeholder="Your AI-generated letter will appear here..." value={letter} onChange={(e) => setLetter(e.target.value)} rows={6} />
-            </div>
-
             <Button onClick={generateUrl} className="w-full" disabled={!toName || isGenerating}>
               {isGenerating ? 'Generating Link...' : 'Generate Link'}
             </Button>
           </fieldset>
+
         {generatedUrl && (
           <div className="space-y-2 pt-4">
             <Label>Your special link:</Label>
@@ -290,7 +279,7 @@ function ProposalList() {
   );
 }
 
-export default function Home() {
+function HomePageContent() {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
 
@@ -300,24 +289,37 @@ export default function Home() {
     }
   }, [user, isUserLoading, router]);
 
-  if (isUserLoading) {
+  if (isUserLoading || !user) {
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-[#fee9f2] to-[#ff69b4] p-4 overflow-auto">
-        <div className="py-8 text-center">
-            <p>Loading user...</p>
-        </div>
-      </main>
+      <div className="py-8 text-center">
+        <p>Loading user...</p>
+      </div>
     )
   }
 
   return (
+    <div className="py-8">
+      <Suspense>
+        <PersonalizeForm user={user} />
+        <ProposalList />
+      </Suspense>
+    </div>
+  );
+}
+
+
+export default function Home() {
+  const { isUserLoading } = useUser();
+  
+  return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-[#fee9f2] to-[#ff69b4] p-4 overflow-auto">
-       <div className="py-8">
-        <Suspense>
-          <PersonalizeForm user={user} />
-          <ProposalList />
-        </Suspense>
-      </div>
+       {isUserLoading ? (
+         <div className="py-8 text-center">
+           <p>Loading...</p>
+         </div>
+       ) : (
+        <HomePageContent />
+       )}
     </main>
   );
 }
