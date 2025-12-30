@@ -87,18 +87,19 @@ export default function SignupPage() {
             </div>
             <div className="grid gap-2 relative">
               <Label htmlFor="password">Password</Label>
-              <Input 
-                id="password" 
+              <Input
+                id="password"
                 type={showPassword ? 'text' : 'password'}
-                required 
+                required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="pr-10"
               />
-               <button
+              <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-9 text-muted-foreground"
+                className="absolute right-3 top-8 text-muted-foreground h-fit w-fit"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
