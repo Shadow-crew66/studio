@@ -8,8 +8,17 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { useUser, useFirestore } from '@/firebase';
-import { addDoc, collection, doc, setDoc } from 'firebase/firestore';
+import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { addDoc, collection, doc, setDoc, query, orderBy } from 'firebase/firestore';
+import { Badge } from '@/components/ui/badge';
+import { format } from 'date-fns';
+
+interface Proposal {
+  id: string;
+  recipientName: string;
+  status: 'pending' | 'accepted';
+  createdAt: string;
+}
 
 function PersonalizeForm() {
   const { user } = useUser();
@@ -17,44 +26,46 @@ function PersonalizeForm() {
   const [letter, setLetter] = useState('');
   const [generatedUrl, setGeneratedUrl] = useState('');
   const [isCopied, setIsCopied] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const firestore = useFirestore();
 
   const generateUrl = async () => {
     if (user && toName && firestore) {
+      setIsGenerating(true);
       try {
-        // Create a document in the public proposals collection first to get an ID
-        const publicProposalsRef = collection(firestore, `proposals`);
+        const publicProposalsRef = collection(firestore, 'proposals');
         const publicDocRef = await addDoc(publicProposalsRef, {
-            senderId: user.uid,
-            senderName: user.displayName || user.email,
-            recipientName: toName,
-            letter: letter,
-            status: 'pending',
-            createdAt: new Date().toISOString(),
+          senderId: user.uid,
+          senderName: user.displayName || user.email,
+          recipientName: toName,
+          letter: letter,
+          status: 'pending',
+          createdAt: new Date().toISOString(),
         });
         const proposalId = publicDocRef.id;
 
         const newProposal = {
-            id: proposalId,
-            senderId: user.uid,
-            senderName: user.displayName || user.email,
-            recipientName: toName,
-            letter: letter,
-            status: 'pending',
-            createdAt: new Date().toISOString(),
+          id: proposalId,
+          senderId: user.uid,
+          senderName: user.displayName || user.email,
+          recipientName: toName,
+          letter: letter,
+          status: 'pending',
+          createdAt: new Date().toISOString(),
         };
 
-        // Now create a copy in the user's private collection
         const userProposalRef = doc(firestore, `users/${user.uid}/proposals/${proposalId}`);
         await setDoc(userProposalRef, newProposal);
-        
+
         const url = new URL(`${window.location.origin}/proposal/${proposalId}`);
         setGeneratedUrl(url.toString());
         setIsCopied(false);
-
+        setToName('');
+        setLetter('');
       } catch (error) {
         console.error("Error creating proposal:", error);
-        // Optionally, show an error toast to the user
+      } finally {
+        setIsGenerating(false);
       }
     }
   };
@@ -80,8 +91,8 @@ function PersonalizeForm() {
           <Label htmlFor="letter">Personal Letter (Optional)</Label>
           <Textarea id="letter" placeholder="Write your heartfelt message here..." value={letter} onChange={(e) => setLetter(e.target.value)} />
         </div>
-        <Button onClick={generateUrl} className="w-full" disabled={!toName}>
-          Generate Link
+        <Button onClick={generateUrl} className="w-full" disabled={!toName || isGenerating}>
+          {isGenerating ? 'Generating...' : 'Generate Link'}
         </Button>
         {generatedUrl && (
           <div className="space-y-2 pt-4">
@@ -100,6 +111,50 @@ function PersonalizeForm() {
   );
 }
 
+function ProposalList() {
+  const { user } = useUser();
+  const firestore = useFirestore();
+
+  const proposalsQuery = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return query(collection(firestore, `users/${user.uid}/proposals`), orderBy('createdAt', 'desc'));
+  }, [user, firestore]);
+
+  const { data: proposals, isLoading } = useCollection<Proposal>(proposalsQuery);
+
+  if (isLoading) {
+    return <p>Loading proposals...</p>;
+  }
+  
+  if (!proposals || proposals.length === 0) {
+    return null; // Don't show anything if there are no proposals yet
+  }
+
+  return (
+    <Card className="w-full max-w-md mt-8">
+      <CardHeader>
+        <CardTitle>Your Sent Proposals</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {proposals.map((proposal) => (
+          <div key={proposal.id} className="flex items-center justify-between p-3 bg-card rounded-lg border">
+            <div>
+              <p className="font-semibold">{proposal.recipientName}</p>
+              <p className="text-sm text-muted-foreground">
+                Sent on {format(new Date(proposal.createdAt), 'MMM d, yyyy')}
+              </p>
+            </div>
+            <Badge variant={proposal.status === 'accepted' ? 'default' : 'secondary'} className={proposal.status === 'accepted' ? 'bg-green-500 text-white' : ''}>
+              {proposal.status.charAt(0).toUpperCase() + proposal.status.slice(1)}
+            </Badge>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+
 function HomePageContent() {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
@@ -115,18 +170,25 @@ function HomePageContent() {
   }
 
   if (!user) {
-    return null; // or a loading spinner
+    return null;
   }
 
-  return <PersonalizeForm />;
+  return (
+    <>
+      <PersonalizeForm />
+      <ProposalList />
+    </>
+  );
 }
 
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-[#fee9f2] to-[#ff69b4] p-4 overflow-hidden">
-      <Suspense>
-        <HomePageContent />
-      </Suspense>
+    <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-[#fee9f2] to-[#ff69b4] p-4 overflow-auto">
+       <div className="py-8">
+        <Suspense>
+          <HomePageContent />
+        </Suspense>
+      </div>
     </main>
   );
 }
