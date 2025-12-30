@@ -30,7 +30,7 @@ const BouncingHeart = () => (
 
 const fallbackTexts = ["Are you sure?", "Really??", "Think again!", "You're breaking my heart :(", "Last chance!"];
 
-export function Proposal() {
+export function Proposal({ from, to }: { from: string; to: string }) {
   const [noClickCount, setNoClickCount] = useState(0);
   const [yesButtonScale, setYesButtonScale] = useState(1);
   const [noButtonText, setNoButtonText] = useState("No");
@@ -80,7 +80,7 @@ export function Proposal() {
     <>
       <BouncingHeart />
       <h1 className="text-4xl md:text-6xl font-headline text-center text-primary-foreground/90 mb-8">
-        Will you be my Valentine?
+        {to}, will you be my Valentine?
       </h1>
       <motion.div animate={{ scale: yesButtonScale }} transition={{ type: "spring", stiffness: 200, damping: 15 }}>
         <Button
@@ -112,7 +112,11 @@ export function Proposal() {
           animate={{ opacity: 1 }}
           transition={{ delay: 1, duration: 1 }}
         >
-          "With this ring, all my today and all my tomorrows are yours. Will you make me the happiest person alive?"
+          My dearest {to}, with this ring, all my today and all my tomorrows are yours. Will you make me the happiest person alive?
+          <br/> <br/>
+          All my love,
+          <br/>
+          {from}
         </motion.p>
       </motion.div>
     </>
