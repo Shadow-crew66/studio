@@ -50,7 +50,6 @@ function PersonalizeForm({ user }: { user: User | null }) {
 
   const handleGenerateLetter = async () => {
     if (!toName || !keywords) {
-      // Maybe show a toast or message to enter recipient and keywords
       return;
     }
     setIsGeneratingLetter(true);
@@ -61,7 +60,6 @@ function PersonalizeForm({ user }: { user: User | null }) {
       }
     } catch (error) {
       console.error("Error generating letter:", error);
-      // Optionally, show an error toast to the user
     } finally {
       setIsGeneratingLetter(false);
     }
@@ -91,7 +89,6 @@ function PersonalizeForm({ user }: { user: User | null }) {
         id: proposalId,
         senderId: user.uid,
         recipientName: toName,
-        status: 'pending' as const,
         createdAt: new Date().toISOString(),
       };
       const userProposalRef = doc(firestore, `users/${user.uid}/proposals/${proposalId}`);
@@ -119,6 +116,7 @@ function PersonalizeForm({ user }: { user: User | null }) {
   };
   
   const isFormDisabled = isGenerating || !user;
+  const isAiButtonDisabled = !toName || !keywords || isGeneratingLetter || isGenerating || !user;
 
   return (
     <Card className="w-full max-w-md">
@@ -129,19 +127,21 @@ function PersonalizeForm({ user }: { user: User | null }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="toName">Your Partner's Name</Label>
-            <Input id="toName" placeholder="Enter your partner's name" value={toName} onChange={(e) => setToName(e.target.value)} disabled={isFormDisabled} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="keywords">Keywords for AI</Label>
-            <Input id="keywords" placeholder="e.g., our first date, your smile, adventures" value={keywords} onChange={(e) => setKeywords(e.target.value)} disabled={isFormDisabled} />
-          </div>
-
+          <fieldset disabled={isFormDisabled} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="toName">Your Partner's Name</Label>
+              <Input id="toName" placeholder="Enter your partner's name" value={toName} onChange={(e) => setToName(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="keywords">Keywords for AI</Label>
+              <Input id="keywords" placeholder="e.g., our first date, your smile, adventures" value={keywords} onChange={(e) => setKeywords(e.target.value)} />
+            </div>
+          </fieldset>
+          
           <div className="space-y-2">
             <Label htmlFor="letter">Personal Letter</Label>
             <div className="flex gap-2">
-              <Button onClick={handleGenerateLetter} className="w-full" variant="outline" size="sm" disabled={!toName || !keywords || isGeneratingLetter || isFormDisabled}>
+              <Button onClick={handleGenerateLetter} className="w-full" variant="outline" size="sm" disabled={isAiButtonDisabled}>
                 <Sparkles className="mr-2 h-4 w-4" />
                 {isGeneratingLetter ? 'Generating...' : 'Generate with AI'}
               </Button>
@@ -289,7 +289,7 @@ function HomePageContent() {
     }
   }, [user, isUserLoading, router]);
 
-  if (isUserLoading || !user) {
+  if (isUserLoading) {
     return (
       <div className="py-8 text-center">
         <p>Loading user...</p>
@@ -309,11 +309,11 @@ function HomePageContent() {
 
 
 export default function Home() {
-  const { isUserLoading } = useUser();
+  const { user, isUserLoading } = useUser();
   
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-[#fee9f2] to-[#ff69b4] p-4 overflow-auto">
-       {isUserLoading ? (
+       {isUserLoading && !user ? (
          <div className="py-8 text-center">
            <p>Loading...</p>
          </div>
