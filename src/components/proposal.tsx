@@ -5,6 +5,9 @@ import { useState, useEffect, Fragment, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Confetti from "react-confetti";
 import { Button } from "@/components/ui/button";
+import { useFirestore } from "@/firebase";
+import { doc } from 'firebase/firestore';
+import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 const BouncingHeart = () => (
   <motion.div
@@ -31,7 +34,7 @@ const BouncingHeart = () => (
 
 const fallbackTexts = ["Are you sure?", "Really??", "Think again!", "You're breaking my heart :(", "Last chance!"];
 
-export function Proposal({ from, to, letter }: { from: string; to: string; letter?: string }) {
+export function Proposal({ from, to, letter, proposalId }: { from: string; to: string; letter?: string, proposalId: string }) {
   const [noClickCount, setNoClickCount] = useState(0);
   const [yesButtonScale, setYesButtonScale] = useState(1);
   const [noButtonText, setNoButtonText] = useState("No");
@@ -40,6 +43,8 @@ export function Proposal({ from, to, letter }: { from: string; to: string; lette
   const [windowSize, setWindowSize] = useState({ width: 0, height: 0 });
   const [isClient, setIsClient] = useState(false);
   const [showNoButton, setShowNoButton] = useState(true);
+  
+  const firestore = useFirestore();
 
   const defaultLetter = `My dearest ${to}, with this ring, all my today and all my tomorrows are yours. Will you make me the happiest person alive?`;
 
@@ -80,6 +85,10 @@ export function Proposal({ from, to, letter }: { from: string; to: string; lette
   const handleYesClick = () => {
     setIsYesClicked(true);
     setShowNoButton(false);
+    // This is where we will update the status in Firestore.
+    // We need the sender's ID to construct the path.
+    // For now, this is a placeholder.
+    console.log("Proposal accepted! ID:", proposalId);
   };
 
   if (!isClient) {
