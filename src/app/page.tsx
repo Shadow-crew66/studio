@@ -29,7 +29,6 @@ import {
 interface PrivateProposal {
   id: string;
   recipientName: string;
-  // Note: status is now read from the public proposal
   createdAt: string;
 }
 
@@ -53,8 +52,8 @@ function PersonalizeForm() {
       try {
         const publicProposalsRef = collection(firestore, 'proposals');
         
-        // Prepare the proposal data
-        const newProposalData = {
+        // Prepare the public proposal data
+        const publicProposalData = {
           senderId: user.uid,
           senderName: user.displayName || user.email,
           recipientName: toName,
@@ -65,18 +64,23 @@ function PersonalizeForm() {
         };
 
         // Create the public proposal document
-        const publicDocRef = await addDoc(publicProposalsRef, newProposalData);
+        const publicDocRef = await addDoc(publicProposalsRef, publicProposalData);
         const proposalId = publicDocRef.id;
 
         // Update the public document with its own ID
         await setDoc(publicDocRef, { id: proposalId }, { merge: true });
         
-        // Update the proposal data with the final ID
-        const finalProposal = { ...newProposalData, id: proposalId };
+        // Prepare the private proposal data for the sender
+        const privateProposalData = {
+          id: proposalId,
+          recipientName: toName,
+          createdAt: publicProposalData.createdAt,
+          // status is intentionally omitted here as it's read from the public doc
+        };
 
         // Create the private proposal document for the user
         const userProposalRef = doc(firestore, `users/${user.uid}/proposals/${proposalId}`);
-        await setDoc(userProposalRef, finalProposal);
+        await setDoc(userProposalRef, privateProposalData);
 
         const url = new URL(`${window.location.origin}/proposal/${proposalId}`);
         setGeneratedUrl(url.toString());
