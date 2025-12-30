@@ -12,7 +12,7 @@ import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@
 import { collection, doc, writeBatch, query, orderBy, deleteDoc } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
-import { Trash2, Sparkles } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import type { User } from 'firebase/auth';
 import {
   AlertDialog,
@@ -25,7 +25,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { generateLetter } from '@/ai/flows/adaptive-persuasion';
 
 
 interface PrivateProposal {
@@ -41,29 +40,10 @@ interface PublicProposal {
 function PersonalizeForm({ user }: { user: User | null }) {
   const [toName, setToName] = useState('');
   const [letter, setLetter] = useState('');
-  const [keywords, setKeywords] = useState('');
   const [generatedUrl, setGeneratedUrl] = useState('');
   const [isCopied, setIsCopied] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isGeneratingLetter, setIsGeneratingLetter] = useState(false);
   const firestore = useFirestore();
-
-  const handleGenerateLetter = async () => {
-    if (!toName || !keywords) {
-      return;
-    }
-    setIsGeneratingLetter(true);
-    try {
-      const result = await generateLetter({ recipientName: toName, keywords });
-      if (result.letter) {
-        setLetter(result.letter);
-      }
-    } catch (error) {
-      console.error("Error generating letter:", error);
-    } finally {
-      setIsGeneratingLetter(false);
-    }
-  };
   
   const generateUrl = async () => {
     if (!user || !toName || !firestore) return;
@@ -101,7 +81,6 @@ function PersonalizeForm({ user }: { user: User | null }) {
       setIsCopied(false);
       setToName('');
       setLetter('');
-      setKeywords('');
     } catch (error) {
       console.error("Error creating proposal:", error);
     } finally {
@@ -116,14 +95,13 @@ function PersonalizeForm({ user }: { user: User | null }) {
   };
   
   const isFormDisabled = isGenerating || !user;
-  const isAiButtonDisabled = !toName || !keywords || isGeneratingLetter || isGenerating || !user;
 
   return (
     <Card className="w-full max-w-md">
       <CardHeader>
         <CardTitle>Create Your Proposal</CardTitle>
         <CardDescription>
-          Enter your partner's name and some keywords to create a special proposal.
+          Enter your partner's name and write a special proposal letter.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -132,24 +110,12 @@ function PersonalizeForm({ user }: { user: User | null }) {
               <Label htmlFor="toName">Your Partner's Name</Label>
               <Input id="toName" placeholder="Enter your partner's name" value={toName} onChange={(e) => setToName(e.target.value)} />
             </div>
+            
             <div className="space-y-2">
-              <Label htmlFor="keywords">Keywords for AI</Label>
-              <Input id="keywords" placeholder="e.g., our first date, your smile, adventures" value={keywords} onChange={(e) => setKeywords(e.target.value)} />
+              <Label htmlFor="letter">Personal Letter (Optional)</Label>
+              <Textarea id="letter" placeholder="Write a personal message..." value={letter} onChange={(e) => setLetter(e.target.value)} rows={6} />
             </div>
-          </fieldset>
           
-          <div className="space-y-2">
-            <Label htmlFor="letter">Personal Letter</Label>
-            <div className="flex gap-2">
-              <Button onClick={handleGenerateLetter} className="w-full" variant="outline" size="sm" disabled={isAiButtonDisabled}>
-                <Sparkles className="mr-2 h-4 w-4" />
-                {isGeneratingLetter ? 'Generating...' : 'Generate with AI'}
-              </Button>
-            </div>
-            <Textarea id="letter" placeholder="Your AI-generated letter will appear here..." value={letter} onChange={(e) => setLetter(e.target.value)} rows={6} disabled={isFormDisabled}/>
-          </div>
-          
-          <fieldset disabled={isFormDisabled} className="space-y-4">
             <Button onClick={generateUrl} className="w-full" disabled={!toName || isGenerating}>
               {isGenerating ? 'Generating Link...' : 'Generate Link'}
             </Button>
