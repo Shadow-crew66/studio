@@ -80,7 +80,7 @@ export function Proposal({ from, to }: { from: string; to: string }) {
     <>
       <BouncingHeart />
       <h1 className="text-4xl md:text-6xl font-headline text-center text-primary-foreground/90 mb-8">
-        {to}, will you be my Valentine?
+        {to}, will you be my love?
       </h1>
       <motion.div animate={{ scale: yesButtonScale }} transition={{ type: "spring", stiffness: 200, damping: 15 }}>
         <Button
