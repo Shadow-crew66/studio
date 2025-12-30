@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { addDoc, collection, doc, setDoc, query, orderBy, deleteDoc, writeBatch } from 'firebase/firestore';
+import { collection, doc, writeBatch, query, orderBy } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { Trash2 } from 'lucide-react';
@@ -261,7 +261,16 @@ function HomePageContent() {
     return (
       <>
         <PersonalizeForm user={null} />
-        <p className="text-center mt-4">Loading user & proposals...</p>
+        <div className="w-full max-w-md mt-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>Your Sent Proposals</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p>Loading proposals...</p>
+            </CardContent>
+          </Card>
+        </div>
       </>
     )
   }
