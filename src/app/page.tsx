@@ -2,16 +2,14 @@
 'use client';
 
 import { useState, Suspense, useEffect } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import { Proposal } from '@/components/proposal';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { useUser, useAuth, useFirestore } from '@/firebase';
-import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { collection } from 'firebase/firestore';
+import { useUser, useFirestore } from '@/firebase';
+import { addDoc, collection, doc, setDoc } from 'firebase/firestore';
 
 function PersonalizeForm() {
   const { user } = useUser();
@@ -22,26 +20,38 @@ function PersonalizeForm() {
   const firestore = useFirestore();
 
   const generateUrl = async () => {
-    if (user && toName) {
-      const newProposal = {
-        senderId: user.uid,
-        senderName: user.displayName || user.email,
-        recipientName: toName,
-        letter: letter,
-        status: 'pending',
-        createdAt: new Date().toISOString(),
-      };
-
+    if (user && toName && firestore) {
       try {
-        const proposalsRef = collection(firestore, `users/${user.uid}/proposals`);
-        const docRef = await addDocumentNonBlocking(proposalsRef, newProposal);
+        // Create a document in the public proposals collection first to get an ID
+        const publicProposalsRef = collection(firestore, `proposals`);
+        const publicDocRef = await addDoc(publicProposalsRef, {
+            senderId: user.uid,
+            senderName: user.displayName || user.email,
+            recipientName: toName,
+            letter: letter,
+            status: 'pending',
+            createdAt: new Date().toISOString(),
+        });
+        const proposalId = publicDocRef.id;
+
+        const newProposal = {
+            id: proposalId,
+            senderId: user.uid,
+            senderName: user.displayName || user.email,
+            recipientName: toName,
+            letter: letter,
+            status: 'pending',
+            createdAt: new Date().toISOString(),
+        };
+
+        // Now create a copy in the user's private collection
+        const userProposalRef = doc(firestore, `users/${user.uid}/proposals/${proposalId}`);
+        await setDoc(userProposalRef, newProposal);
         
-        if (docRef) {
-          const proposalId = docRef.id;
-          const url = new URL(`${window.location.origin}/proposal/${proposalId}`);
-          setGeneratedUrl(url.toString());
-          setIsCopied(false);
-        }
+        const url = new URL(`${window.location.origin}/proposal/${proposalId}`);
+        setGeneratedUrl(url.toString());
+        setIsCopied(false);
+
       } catch (error) {
         console.error("Error creating proposal:", error);
         // Optionally, show an error toast to the user

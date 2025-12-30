@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "User": {
@@ -46,9 +47,9 @@
           "type": "string",
           "description": "Reference to the User who sent the proposal. (Relationship: User 1:N Proposal)"
         },
-        "recipientId": {
+        "recipientName": {
           "type": "string",
-          "description": "Reference to the User who received the proposal. (Relationship: User 1:N Proposal)"
+          "description": "Name of the User who received the proposal."
         },
         "status": {
           "type": "string",
@@ -68,7 +69,7 @@
       "required": [
         "id",
         "senderId",
-        "recipientId",
+        "recipientName",
         "status",
         "createdAt"
       ]
@@ -121,8 +122,7 @@
   },
   "auth": {
     "providers": [
-      "password",
-      "anonymous"
+      "password"
     ]
   },
   "firestore": {
@@ -150,7 +150,7 @@
           "schema": {
             "$ref": "#/backend/entities/Proposal"
           },
-          "description": "Stores proposals associated with a specific user. Path-based ownership ensures that only the involved users (sender and recipient) can access the proposal data. Includes denormalized 'senderId' and 'recipientId' for authorization independence.",
+          "description": "Stores a private copy of proposals for the logged-in user. Path-based ownership ensures that only the user can access this data.",
           "params": [
             {
               "name": "userId",
@@ -161,6 +161,22 @@
               "description": "The unique identifier of the proposal."
             }
           ]
+        }
+      },
+      {
+        "path": "/proposals/{proposalId}",
+        "definition": {
+            "entityName": "Proposal",
+            "schema": {
+                "$ref": "#/backend/entities/Proposal"
+            },
+            "description": "Stores a public-readable copy of the proposal so the recipient can view it without logging in. The security rules prevent listing or deleting.",
+            "params": [
+                {
+                    "name": "proposalId",
+                    "description": "The unique identifier of the proposal."
+                }
+            ]
         }
       },
       {
@@ -184,6 +200,6 @@
         }
       }
     ],
-    "reasoning": "The Firestore data structure is designed to ensure authorization independence, clarity, and scalability. It uses path-based ownership for user-related data and denormalization to avoid complex security rules with `get()` calls.  The structure supports secure `list` operations (QAPs) by segregating data into collections with homogeneous security postures. Specifically, proposals and notifications are placed under user-specific collections to leverage path-based authorization, ensuring that only the intended user can access them. This eliminates the need for complex filtering in rules and maintains data integrity. The use of explicit IDs and timestamps enhances predictability and debuggability."
+    "reasoning": "The Firestore data structure is designed to ensure authorization independence, clarity, and scalability. It uses path-based ownership for user-related data and denormalization to avoid complex security rules with `get()` calls.  A public `/proposals` collection is introduced to allow recipients to view proposals anonymously, with security rules restricting write access. A private copy of the proposal is kept in `/users/{userId}/proposals` to allow senders to manage their own proposals securely. This hybrid approach supports both public access for the initial interaction and secure, private data management for authenticated users."
   }
 }

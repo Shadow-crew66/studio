@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Confetti from "react-confetti";
 import { Button } from "@/components/ui/button";
 import { useFirestore } from "@/firebase";
-import { doc } from 'firebase/firestore';
+import { doc, updateDoc } from 'firebase/firestore';
 import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 const BouncingHeart = () => (
@@ -82,13 +82,21 @@ export function Proposal({ from, to, letter, proposalId }: { from: string; to: s
     setNoButtonPosition({ top: newTop, left: newLeft });
   };
 
-  const handleYesClick = () => {
+  const handleYesClick = async () => {
     setIsYesClicked(true);
     setShowNoButton(false);
-    // This is where we will update the status in Firestore.
-    // We need the sender's ID to construct the path.
-    // For now, this is a placeholder.
-    console.log("Proposal accepted! ID:", proposalId);
+    if (firestore) {
+      const publicProposalRef = doc(firestore, 'proposals', proposalId);
+      updateDocumentNonBlocking(publicProposalRef, { status: 'accepted', acceptedAt: new Date().toISOString() });
+
+      // We also need to update the sender's copy. We need the senderId for that.
+      // The proposal data should contain it.
+      const proposalDoc = await (await fetch(`/api/proposal/${proposalId}`)).json();
+      if(proposalDoc && proposalDoc.senderId) {
+        const userProposalRef = doc(firestore, `users/${proposalDoc.senderId}/proposals`, proposalId);
+        updateDocumentNonBlocking(userProposalRef, { status: 'accepted', acceptedAt: new Date().toISOString() });
+      }
+    }
   };
 
   if (!isClient) {

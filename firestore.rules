@@ -1,15 +1,17 @@
+
 rules_version = '2';
 
 /**
  * @name Heart's Persuasion Firestore Security Rules
  * @author AI Security Architect
- * @version 1.0.0
+ * @version 1.1.0
  *
  * @description
  * This ruleset enforces a strict user-ownership security model for the Heart's
  * Persuasion application. All user-related data, including profiles, proposals,
  * and notifications, is stored in user-specific document trees, making authorization
- * straightforward and secure.
+ * straightforward and secure. A public 'proposals' collection is added for
+ * recipients to view proposals without authentication.
  *
  * Core Philosophy:
  * The guiding principle is "path-based authorization." A user's authenticated UID
@@ -21,15 +23,17 @@ rules_version = '2';
  * - /users/{userId}: Root document for each user's profile data.
  * - /users/{userId}/proposals/{proposalId}: A user's copy of a proposal they sent or received.
  * - /users/{userId}/notifications/{notificationId}: A user's private notifications.
+ * - /proposals/{proposalId}: A public, read-only copy of a proposal for the recipient.
  *
  * Key Security Decisions:
- * - No Public Data: There are no publicly readable collections. All data access requires authentication.
- * - No User Listing: It is not possible to list or query the top-level `/users` collection.
+ * - Public Proposal View: A top-level `/proposals` collection allows anyone with the link
+ *   to read a proposal. This is essential for the recipient's initial view.
+ * - Secure Updates: Only authenticated users can create proposals. Updates to the public
+ *   proposal's status (e.g., to 'accepted') are allowed to facilitate the acceptance flow.
+ * - No User Listing: It is not possible to list or query the top-level `/users` or `/proposals` collections.
  * - Denormalization for Authorization: To secure proposals between two parties (sender and
  *   recipient), the application is expected to create a separate copy of the proposal document
- *   for each user involved (e.g., one under the sender's path and one under the recipient's).
- *   This ensures that read, list, and delete operations can be secured simply by checking
- *   the document path, which is highly secure and performant for mobile clients.
+ *   for the sender and a public one for the recipient.
  * - Self-Service Data Management: Users are empowered to manage their own data. They can create
  *   their own user profile and manage their own copies of proposals and notifications.
  */
@@ -78,7 +82,7 @@ service cloud.firestore {
     }
 
     // ----------------------------------------------------------------------
-    // Proposal Rules
+    // User's Private Proposal Rules
     // ----------------------------------------------------------------------
 
     /**
@@ -97,6 +101,27 @@ service cloud.firestore {
       allow update: if isOwner(userId) && resource != null;
       allow delete: if isOwner(userId) && resource != null;
     }
+
+    // ----------------------------------------------------------------------
+    // Public Proposal Rules
+    // ----------------------------------------------------------------------
+    /**
+     * @description Publicly readable proposals.
+     * @path /proposals/{proposalId}
+     * @allow (get) Anyone can read a proposal if they have the ID.
+     * @allow (create) Only an authenticated user (the sender) can create a new proposal.
+     * @allow (update) Anyone can update the status to 'accepted'. This is for the recipient.
+     * @deny (list) Listing all public proposals is disallowed.
+     * @deny (delete) No one can delete a public proposal.
+     */
+    match /proposals/{proposalId} {
+      allow get: if true;
+      allow list: if false;
+      allow create: if isSignedIn() && request.resource.data.senderId == request.auth.uid;
+      allow update: if request.resource.data.status == 'accepted';
+      allow delete: if false;
+    }
+
 
     // ----------------------------------------------------------------------
     // Notification Rules

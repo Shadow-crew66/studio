@@ -17,20 +17,19 @@ interface ProposalData {
 function ProposalLoader({ proposalId }: { proposalId: string }) {
   const firestore = useFirestore();
 
-  // This is a bit of a trick. We don't know the senderId,
-  // but the security rules are path-based and restrictive.
-  // We'll need a more robust way to fetch this, likely via a dedicated proposals collection
-  // For now, we can't fetch it directly without knowing the user.
-  // This will be fixed in the next step.
+  const proposalRef = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return doc(firestore, `proposals/${proposalId}`);
+  }, [firestore, proposalId]);
 
-  // For now, we will create a placeholder.
-  // In the next step we will read the proposal data.
-  const from = "Your love";
-  const to = "My dearest";
-  const letter = "Will you marry me?";
+  const { data: proposal, isLoading } = useDoc<ProposalData>(proposalRef);
 
-  if (from && to) {
-    return <Proposal from={from} to={to} letter={letter} proposalId={proposalId} />;
+  if (isLoading) {
+    return <div>Loading proposal...</div>;
+  }
+
+  if (proposal) {
+    return <Proposal from={proposal.senderName} to={proposal.recipientName} letter={proposal.letter} proposalId={proposalId} />;
   }
 
   return (
@@ -50,4 +49,3 @@ export default function ProposalPage({ params }: { params: { proposalId: string 
     </main>
   );
 }
-
