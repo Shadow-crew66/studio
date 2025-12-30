@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { addDoc, collection, doc, setDoc, query, orderBy, deleteDoc } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
@@ -26,12 +26,17 @@ import {
 } from "@/components/ui/alert-dialog"
 
 
-interface Proposal {
+interface PrivateProposal {
   id: string;
   recipientName: string;
-  status: 'pending' | 'accepted';
+  // Note: status is now read from the public proposal
   createdAt: string;
 }
+
+interface PublicProposal {
+  status: 'pending' | 'accepted';
+}
+
 
 function PersonalizeForm() {
   const { user } = useUser();
@@ -127,16 +132,19 @@ function PersonalizeForm() {
   );
 }
 
-function ProposalList() {
-  const { user } = useUser();
+
+function ProposalListItem({ proposal }: { proposal: PrivateProposal }) {
   const firestore = useFirestore();
+  const { user } = useUser();
 
-  const proposalsQuery = useMemoFirebase(() => {
-    if (!user || !firestore) return null;
-    return query(collection(firestore, `users/${user.uid}/proposals`), orderBy('createdAt', 'desc'));
-  }, [user, firestore]);
+  // Create a memoized reference to the public proposal document
+  const publicProposalRef = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return doc(firestore, `proposals/${proposal.id}`);
+  }, [firestore, proposal.id]);
 
-  const { data: proposals, isLoading } = useCollection<Proposal>(proposalsQuery);
+  // Use useDoc to get real-time status from the public document
+  const { data: publicProposal, isLoading: isStatusLoading } = useDoc<PublicProposal>(publicProposalRef);
 
   const handleDelete = async (proposalId: string) => {
     if (!user || !firestore) return;
@@ -149,6 +157,56 @@ function ProposalList() {
       console.error("Error deleting proposal: ", error);
     }
   };
+
+  const status = isStatusLoading ? 'pending' : (publicProposal?.status || 'pending');
+
+  return (
+    <div className="flex items-center justify-between p-3 bg-card rounded-lg border">
+      <div className="flex-grow">
+        <p className="font-semibold">{proposal.recipientName}</p>
+        <p className="text-sm text-muted-foreground">
+          Sent on {format(new Date(proposal.createdAt), 'MMM d, yyyy')}
+        </p>
+      </div>
+      <div className="flex items-center gap-2">
+        <Badge variant={status === 'accepted' ? 'default' : 'secondary'} className={status === 'accepted' ? 'bg-green-500 text-white' : ''}>
+          {isStatusLoading ? '...' : status.charAt(0).toUpperCase() + status.slice(1)}
+        </Badge>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+             <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/80">
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete the proposal
+                and the special link will no longer work.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={() => handleDelete(proposal.id)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    </div>
+  );
+}
+
+function ProposalList() {
+  const { user } = useUser();
+  const firestore = useFirestore();
+
+  const privateProposalsQuery = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return query(collection(firestore, `users/${user.uid}/proposals`), orderBy('createdAt', 'desc'));
+  }, [user, firestore]);
+
+  const { data: proposals, isLoading } = useCollection<PrivateProposal>(privateProposalsQuery);
 
   if (isLoading) {
     return <p>Loading proposals...</p>;
@@ -165,39 +223,7 @@ function ProposalList() {
       </CardHeader>
       <CardContent className="space-y-4">
         {proposals.map((proposal) => (
-          <div key={proposal.id} className="flex items-center justify-between p-3 bg-card rounded-lg border">
-            <div className="flex-grow">
-              <p className="font-semibold">{proposal.recipientName}</p>
-              <p className="text-sm text-muted-foreground">
-                Sent on {format(new Date(proposal.createdAt), 'MMM d, yyyy')}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant={proposal.status === 'accepted' ? 'default' : 'secondary'} className={proposal.status === 'accepted' ? 'bg-green-500 text-white' : ''}>
-                {proposal.status.charAt(0).toUpperCase() + proposal.status.slice(1)}
-              </Badge>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                   <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/80">
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This action cannot be undone. This will permanently delete the proposal
-                      and the special link will no longer work.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => handleDelete(proposal.id)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
-          </div>
+          <ProposalListItem key={proposal.id} proposal={proposal} />
         ))}
       </CardContent>
     </Card>

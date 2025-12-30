@@ -1,12 +1,12 @@
 
 "use client";
 
-import { useState, useEffect, Fragment, Suspense } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Confetti from "react-confetti";
 import { Button } from "@/components/ui/button";
 import { useFirestore } from "@/firebase";
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc } from 'firebase/firestore';
 import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 const BouncingHeart = () => (
@@ -86,6 +86,7 @@ export function Proposal({ from, to, letter, proposalId, senderId }: { from: str
     setIsYesClicked(true);
     setShowNoButton(false);
     if (firestore) {
+      // This is the public proposal reference that anyone can update to 'accepted'.
       const publicProposalRef = doc(firestore, 'proposals', proposalId);
       
       const updatedData = { 
@@ -93,14 +94,9 @@ export function Proposal({ from, to, letter, proposalId, senderId }: { from: str
         acceptedAt: new Date().toISOString() 
       };
 
-      // Only update the public proposal. The sender's dashboard reads this public record.
+      // The security rules allow this specific update.
+      // This function is non-blocking and handles its own errors.
       updateDocumentNonBlocking(publicProposalRef, updatedData);
-
-      // Also update the sender's private copy for consistency.
-      if (senderId) {
-        const userProposalRef = doc(firestore, `users/${senderId}/proposals`, proposalId);
-        updateDocumentNonBlocking(userProposalRef, updatedData);
-      }
     }
   };
 
