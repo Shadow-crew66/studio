@@ -209,7 +209,7 @@ function ProposalListItem({ proposal }: { proposal: PrivateProposal }) {
 }
 
 function ProposalList() {
-  const { user } = useU ser();
+  const { user } = useUser();
   const firestore = useFirestore();
 
   const privateProposalsQuery = useMemoFirebase(() => {
@@ -284,5 +284,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
