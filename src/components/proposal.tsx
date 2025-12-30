@@ -74,9 +74,6 @@ Will you make my dream last forever and marry me?`;
 
   const handleNoClick = () => {
     const newCount = noClickCount + 1;
-    if (newCount >= 5) {
-      setShowNoButton(false);
-    }
     setNoButtonText(fallbackTexts[noClickCount % fallbackTexts.length]);
     setNoClickCount(newCount);
     setYesButtonScale((prev) => prev * 1.2);
