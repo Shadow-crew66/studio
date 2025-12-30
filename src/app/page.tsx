@@ -12,7 +12,7 @@ import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@
 import { collection, doc, writeBatch, query, orderBy, deleteDoc } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Sparkles } from 'lucide-react';
 import type { User } from 'firebase/auth';
 import {
   AlertDialog,
@@ -24,7 +24,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
+} from "@/components/ui/alert-dialog";
+import { generateLetter } from '@/ai/flows/adaptive-persuasion';
 
 
 interface PrivateProposal {
@@ -37,15 +38,35 @@ interface PublicProposal {
   status: 'pending' | 'accepted';
 }
 
-
-function PersonalizeForm({ user }: { user: User }) {
+function PersonalizeForm({ user }: { user: User | null }) {
   const [toName, setToName] = useState('');
   const [letter, setLetter] = useState('');
+  const [keywords, setKeywords] = useState('');
   const [generatedUrl, setGeneratedUrl] = useState('');
   const [isCopied, setIsCopied] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isGeneratingLetter, setIsGeneratingLetter] = useState(false);
   const firestore = useFirestore();
 
+  const handleGenerateLetter = async () => {
+    if (!toName || !keywords) {
+      // Maybe show a toast or message to enter recipient and keywords
+      return;
+    }
+    setIsGeneratingLetter(true);
+    try {
+      const result = await generateLetter({ recipientName: toName, keywords });
+      if (result.letter) {
+        setLetter(result.letter);
+      }
+    } catch (error) {
+      console.error("Error generating letter:", error);
+      // Optionally, show an error toast to the user
+    } finally {
+      setIsGeneratingLetter(false);
+    }
+  };
+  
   const generateUrl = async () => {
     if (user && toName && firestore) {
       setIsGenerating(true);
@@ -54,7 +75,7 @@ function PersonalizeForm({ user }: { user: User }) {
         const publicProposalRef = doc(collection(firestore, 'proposals'));
         const proposalId = publicProposalRef.id;
         
-        const proposalData = {
+        const publicProposalData = {
           id: proposalId,
           senderId: user.uid,
           senderName: user.displayName || user.email,
@@ -63,10 +84,16 @@ function PersonalizeForm({ user }: { user: User }) {
           status: 'pending' as const,
           createdAt: new Date().toISOString(),
         };
-        batch.set(publicProposalRef, proposalData);
+        batch.set(publicProposalRef, publicProposalData);
         
+        const userProposalData = {
+          id: proposalId,
+          senderId: user.uid,
+          recipientName: toName,
+          createdAt: new Date().toISOString(),
+        };
         const userProposalRef = doc(firestore, `users/${user.uid}/proposals/${proposalId}`);
-        batch.set(userProposalRef, proposalData);
+        batch.set(userProposalRef, userProposalData);
 
         await batch.commit();
 
@@ -75,6 +102,7 @@ function PersonalizeForm({ user }: { user: User }) {
         setIsCopied(false);
         setToName('');
         setLetter('');
+        setKeywords('');
       } catch (error) {
         console.error("Error creating proposal:", error);
       } finally {
@@ -89,14 +117,27 @@ function PersonalizeForm({ user }: { user: User }) {
     setIsCopied(true);
   };
   
-  const isFormDisabled = isGenerating;
+  const isFormDisabled = isGenerating || !user || isGeneratingLetter;
+
+  if (!user) {
+    return (
+        <Card className="w-full max-w-md">
+            <CardHeader>
+                <CardTitle>Create Your Proposal</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <p>Loading user...</p>
+            </CardContent>
+        </Card>
+    )
+  }
 
   return (
     <Card className="w-full max-w-md">
       <CardHeader>
         <CardTitle>Create Your Proposal</CardTitle>
         <CardDescription>
-          Enter your partner's name to create a special link.
+          Enter your partner's name and some keywords to create a special proposal.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -106,11 +147,23 @@ function PersonalizeForm({ user }: { user: User }) {
               <Input id="toName" placeholder="Enter your partner's name" value={toName} onChange={(e) => setToName(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="letter">Personal Letter (Optional)</Label>
-              <Textarea id="letter" placeholder="Write your heartfelt message here..." value={letter} onChange={(e) => setLetter(e.target.value)} />
+              <Label htmlFor="keywords">Keywords for AI</Label>
+              <Input id="keywords" placeholder="e.g., our first date, your smile, adventures" value={keywords} onChange={(e) => setKeywords(e.target.value)} />
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="letter">Personal Letter</Label>
+              <div className="flex gap-2">
+                <Button onClick={handleGenerateLetter} className="w-full" variant="outline" size="sm" disabled={!toName || !keywords || isGeneratingLetter}>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  {isGeneratingLetter ? 'Generating...' : 'Generate with AI'}
+                </Button>
+              </div>
+              <Textarea id="letter" placeholder="Your AI-generated letter will appear here..." value={letter} onChange={(e) => setLetter(e.target.value)} rows={6} />
+            </div>
+
             <Button onClick={generateUrl} className="w-full" disabled={!toName || isGenerating}>
-              {isGenerating ? 'Generating...' : 'Generate Link'}
+              {isGenerating ? 'Generating Link...' : 'Generate Link'}
             </Button>
           </fieldset>
         {generatedUrl && (
@@ -196,7 +249,7 @@ function ProposalListItem({ proposal }: { proposal: PrivateProposal }) {
 }
 
 function ProposalList() {
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
 
   const privateProposalsQuery = useMemoFirebase(() => {
@@ -206,7 +259,7 @@ function ProposalList() {
 
   const { data: proposals, isLoading } = useCollection<PrivateProposal>(privateProposalsQuery);
 
-  if (isLoading) {
+  if (isUserLoading || isLoading) {
     return (
         <Card className="w-full max-w-md mt-8">
             <CardHeader>
@@ -257,10 +310,6 @@ export default function Home() {
     )
   }
 
-  if (!user) {
-    return null;
-  }
-
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-[#fee9f2] to-[#ff69b4] p-4 overflow-auto">
        <div className="py-8">
@@ -272,5 +321,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
