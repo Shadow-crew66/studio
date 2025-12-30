@@ -30,6 +30,10 @@ export default function SignupPage() {
       setError("Authentication service is not available.");
       return;
     }
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters long.");
+      return;
+    }
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
@@ -49,7 +53,13 @@ export default function SignupPage() {
       }
       router.push('/');
     } catch (err: any) {
-      setError(err.message);
+      if (err.code === 'auth/email-already-in-use') {
+        setError('This email address is already in use.');
+      } else if (err.code === 'auth/weak-password') {
+        setError('Password is too weak. Please use at least 6 characters.');
+      } else {
+        setError(err.message);
+      }
     }
   };
 
