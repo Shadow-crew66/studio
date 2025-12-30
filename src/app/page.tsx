@@ -9,10 +9,11 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { addDoc, collection, doc, setDoc, query, orderBy, deleteDoc } from 'firebase/firestore';
+import { addDoc, collection, doc, setDoc, query, orderBy, deleteDoc, writeBatch } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { Trash2 } from 'lucide-react';
+import type { User } from 'firebase/auth';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,8 +38,7 @@ interface PublicProposal {
 }
 
 
-function PersonalizeForm() {
-  const { user } = useUser();
+function PersonalizeForm({ user }: { user: User }) {
   const [toName, setToName] = useState('');
   const [letter, setLetter] = useState('');
   const [generatedUrl, setGeneratedUrl] = useState('');
@@ -50,37 +50,37 @@ function PersonalizeForm() {
     if (user && toName && firestore) {
       setIsGenerating(true);
       try {
-        const publicProposalsRef = collection(firestore, 'proposals');
+        const batch = writeBatch(firestore);
+
+        // 1. Create a reference for the public proposal
+        const publicProposalRef = doc(collection(firestore, 'proposals'));
+        const proposalId = publicProposalRef.id;
         
-        // Prepare the public proposal data
+        // 2. Define the public proposal data
         const publicProposalData = {
+          id: proposalId,
           senderId: user.uid,
           senderName: user.displayName || user.email,
           recipientName: toName,
           letter: letter,
           status: 'pending' as const,
           createdAt: new Date().toISOString(),
-          id: '' // will be set after doc creation
         };
-
-        // Create the public proposal document
-        const publicDocRef = await addDoc(publicProposalsRef, publicProposalData);
-        const proposalId = publicDocRef.id;
-
-        // Update the public document with its own ID
-        await setDoc(publicDocRef, { id: proposalId }, { merge: true });
+        batch.set(publicProposalRef, publicProposalData);
         
-        // Prepare the private proposal data for the sender
+        // 3. Define the private proposal data for the sender
         const privateProposalData = {
           id: proposalId,
           recipientName: toName,
           createdAt: publicProposalData.createdAt,
-          // status is intentionally omitted here as it's read from the public doc
         };
 
-        // Create the private proposal document for the user
+        // 4. Create a reference for the private proposal
         const userProposalRef = doc(firestore, `users/${user.uid}/proposals/${proposalId}`);
-        await setDoc(userProposalRef, privateProposalData);
+        batch.set(userProposalRef, privateProposalData);
+
+        // 5. Commit the batch write
+        await batch.commit();
 
         const url = new URL(`${window.location.origin}/proposal/${proposalId}`);
         setGeneratedUrl(url.toString());
@@ -89,6 +89,7 @@ function PersonalizeForm() {
         setLetter('');
       } catch (error) {
         console.error("Error creating proposal:", error);
+        // Optionally, show a toast or error message to the user
       } finally {
         setIsGenerating(false);
       }
@@ -100,25 +101,31 @@ function PersonalizeForm() {
     navigator.clipboard.writeText(generatedUrl);
     setIsCopied(true);
   };
+  
+  const isFormDisabled = isGenerating || !user;
 
   return (
     <Card className="w-full max-w-md">
       <CardHeader>
         <CardTitle>Create Your Proposal</CardTitle>
-        <CardDescription>Enter your partner's name to create a special link.</CardDescription>
+        <CardDescription>
+          {user ? "Enter your partner's name to create a special link." : "Loading user..."}
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="toName">Your Partner's Name</Label>
-          <Input id="toName" placeholder="Enter your partner's name" value={toName} onChange={(e) => setToName(e.target.value)} />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="letter">Personal Letter (Optional)</Label>
-          <Textarea id="letter" placeholder="Write your heartfelt message here..." value={letter} onChange={(e) => setLetter(e.target.value)} />
-        </div>
-        <Button onClick={generateUrl} className="w-full" disabled={!toName || isGenerating}>
-          {isGenerating ? 'Generating...' : 'Generate Link'}
-        </Button>
+          <fieldset disabled={isFormDisabled} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="toName">Your Partner's Name</Label>
+              <Input id="toName" placeholder="Enter your partner's name" value={toName} onChange={(e) => setToName(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="letter">Personal Letter (Optional)</Label>
+              <Textarea id="letter" placeholder="Write your heartfelt message here..." value={letter} onChange={(e) => setLetter(e.target.value)} />
+            </div>
+            <Button onClick={generateUrl} className="w-full" disabled={!toName || isGenerating}>
+              {isGenerating ? 'Generating...' : 'Generate Link'}
+            </Button>
+          </fieldset>
         {generatedUrl && (
           <div className="space-y-2 pt-4">
             <Label>Your special link:</Label>
@@ -202,7 +209,7 @@ function ProposalListItem({ proposal }: { proposal: PrivateProposal }) {
 }
 
 function ProposalList() {
-  const { user } = useUser();
+  const { user } = useU ser();
   const firestore = useFirestore();
 
   const privateProposalsQuery = useMemoFirebase(() => {
@@ -246,7 +253,12 @@ function HomePageContent() {
   }, [user, isUserLoading, router]);
 
   if (isUserLoading) {
-    return <div>Loading...</div>;
+    return (
+      <>
+        <PersonalizeForm user={null!} />
+        <div>Loading proposals...</div>
+      </>
+    )
   }
 
   if (!user) {
@@ -255,7 +267,7 @@ function HomePageContent() {
 
   return (
     <>
-      <PersonalizeForm />
+      <PersonalizeForm user={user} />
       <ProposalList />
     </>
   );
@@ -272,3 +284,5 @@ export default function Home() {
     </main>
   );
 }
+
+    
