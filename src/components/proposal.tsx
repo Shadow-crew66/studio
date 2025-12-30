@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useState, useEffect, Fragment } from "react";
+import { useState, useEffect, Fragment, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Confetti from "react-confetti";
 import { Button } from "@/components/ui/button";
@@ -30,7 +31,7 @@ const BouncingHeart = () => (
 
 const fallbackTexts = ["Are you sure?", "Really??", "Think again!", "You're breaking my heart :(", "Last chance!"];
 
-export function Proposal({ from, to }: { from: string; to: string }) {
+export function Proposal({ from, to, letter }: { from: string; to: string; letter?: string }) {
   const [noClickCount, setNoClickCount] = useState(0);
   const [yesButtonScale, setYesButtonScale] = useState(1);
   const [noButtonText, setNoButtonText] = useState("No");
@@ -38,6 +39,10 @@ export function Proposal({ from, to }: { from: string; to: string }) {
   const [isYesClicked, setIsYesClicked] = useState(false);
   const [windowSize, setWindowSize] = useState({ width: 0, height: 0 });
   const [isClient, setIsClient] = useState(false);
+  const [showNoButton, setShowNoButton] = useState(true);
+
+  const defaultLetter = `My dearest ${to}, with this ring, all my today and all my tomorrows are yours. Will you make me the happiest person alive?`;
+
 
   useEffect(() => {
     setIsClient(true);
@@ -59,8 +64,12 @@ export function Proposal({ from, to }: { from: string; to: string }) {
   }, []);
 
   const handleNoClick = () => {
+    const newCount = noClickCount + 1;
+    if (newCount >= 5) {
+      setShowNoButton(false);
+    }
     setNoButtonText(fallbackTexts[noClickCount % fallbackTexts.length]);
-    setNoClickCount((prev) => prev + 1);
+    setNoClickCount(newCount);
     setYesButtonScale((prev) => prev * 1.2);
 
     const newTop = Math.random() * (window.innerHeight - 150) + 50;
@@ -70,6 +79,7 @@ export function Proposal({ from, to }: { from: string; to: string }) {
 
   const handleYesClick = () => {
     setIsYesClicked(true);
+    setShowNoButton(false);
   };
 
   if (!isClient) {
@@ -96,7 +106,7 @@ export function Proposal({ from, to }: { from: string; to: string }) {
 
   const celebrationContent = (
     <>
-      <Confetti width={windowSize.width} height={windowSize.height} recycle={false} numberOfPieces={500} />
+      {isClient && <Confetti width={windowSize.width} height={windowSize.height} recycle={false} numberOfPieces={500} />}
       <motion.div
         initial={{ opacity: 0, scale: 0.5 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -107,12 +117,12 @@ export function Proposal({ from, to }: { from: string; to: string }) {
           I knew you couldn't say no! ❤️
         </h1>
         <motion.p 
-          className="text-lg md:text-xl font-body text-primary-foreground/80 mt-4 max-w-md"
+          className="text-lg md:text-xl font-body text-primary-foreground/80 mt-4 max-w-md whitespace-pre-wrap"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1, duration: 1 }}
         >
-          My dearest {to}, with this ring, all my today and all my tomorrows are yours. Will you make me the happiest person alive?
+          {letter || defaultLetter}
           <br/> <br/>
           All my love,
           <br/>
@@ -133,7 +143,7 @@ export function Proposal({ from, to }: { from: string; to: string }) {
       </motion.div>
 
       <AnimatePresence>
-        {!isYesClicked && noButtonPosition && (
+        {showNoButton && noButtonPosition && (
           <motion.div
             key={noClickCount}
             className="absolute"
