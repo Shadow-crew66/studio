@@ -38,7 +38,7 @@ interface PublicProposal {
 }
 
 
-function PersonalizeForm({ user }: { user: User }) {
+function PersonalizeForm({ user }: { user: User | null }) {
   const [toName, setToName] = useState('');
   const [letter, setLetter] = useState('');
   const [generatedUrl, setGeneratedUrl] = useState('');
@@ -160,10 +160,15 @@ function ProposalListItem({ proposal }: { proposal: PrivateProposal }) {
   const handleDelete = async (proposalId: string) => {
     if (!user || !firestore) return;
     try {
+      const batch = writeBatch(firestore);
       // Delete from user's private collection
-      await deleteDoc(doc(firestore, `users/${user.uid}/proposals`, proposalId));
+      const privateDocRef = doc(firestore, `users/${user.uid}/proposals`, proposalId);
+      batch.delete(privateDocRef);
       // Delete from public collection
-      await deleteDoc(doc(firestore, 'proposals', proposalId));
+      const publicDocRef = doc(firestore, 'proposals', proposalId);
+      batch.delete(publicDocRef);
+      await batch.commit();
+
     } catch (error) {
       console.error("Error deleting proposal: ", error);
     }
@@ -255,8 +260,8 @@ function HomePageContent() {
   if (isUserLoading) {
     return (
       <>
-        <PersonalizeForm user={null!} />
-        <div>Loading proposals...</div>
+        <PersonalizeForm user={null} />
+        <p className="text-center mt-4">Loading user & proposals...</p>
       </>
     )
   }
