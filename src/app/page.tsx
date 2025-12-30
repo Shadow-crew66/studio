@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, doc, writeBatch, query, orderBy } from 'firebase/firestore';
+import { collection, doc, writeBatch, query, orderBy, deleteDoc } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { Trash2 } from 'lucide-react';
@@ -38,7 +38,7 @@ interface PublicProposal {
 }
 
 
-function PersonalizeForm({ user }: { user: User | null }) {
+function PersonalizeForm({ user }: { user: User }) {
   const [toName, setToName] = useState('');
   const [letter, setLetter] = useState('');
   const [generatedUrl, setGeneratedUrl] = useState('');
@@ -51,13 +51,10 @@ function PersonalizeForm({ user }: { user: User | null }) {
       setIsGenerating(true);
       try {
         const batch = writeBatch(firestore);
-
-        // 1. Create a reference for the public proposal
         const publicProposalRef = doc(collection(firestore, 'proposals'));
         const proposalId = publicProposalRef.id;
         
-        // 2. Define the public proposal data
-        const publicProposalData = {
+        const proposalData = {
           id: proposalId,
           senderId: user.uid,
           senderName: user.displayName || user.email,
@@ -66,20 +63,11 @@ function PersonalizeForm({ user }: { user: User | null }) {
           status: 'pending' as const,
           createdAt: new Date().toISOString(),
         };
-        batch.set(publicProposalRef, publicProposalData);
+        batch.set(publicProposalRef, proposalData);
         
-        // 3. Define the private proposal data for the sender
-        const privateProposalData = {
-          id: proposalId,
-          recipientName: toName,
-          createdAt: publicProposalData.createdAt,
-        };
-
-        // 4. Create a reference for the private proposal
         const userProposalRef = doc(firestore, `users/${user.uid}/proposals/${proposalId}`);
-        batch.set(userProposalRef, privateProposalData);
+        batch.set(userProposalRef, proposalData);
 
-        // 5. Commit the batch write
         await batch.commit();
 
         const url = new URL(`${window.location.origin}/proposal/${proposalId}`);
@@ -89,7 +77,6 @@ function PersonalizeForm({ user }: { user: User | null }) {
         setLetter('');
       } catch (error) {
         console.error("Error creating proposal:", error);
-        // Optionally, show a toast or error message to the user
       } finally {
         setIsGenerating(false);
       }
@@ -102,14 +89,14 @@ function PersonalizeForm({ user }: { user: User | null }) {
     setIsCopied(true);
   };
   
-  const isFormDisabled = isGenerating || !user;
+  const isFormDisabled = isGenerating;
 
   return (
     <Card className="w-full max-w-md">
       <CardHeader>
         <CardTitle>Create Your Proposal</CardTitle>
         <CardDescription>
-          {user ? "Enter your partner's name to create a special link." : "Loading user..."}
+          Enter your partner's name to create a special link.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -148,26 +135,21 @@ function ProposalListItem({ proposal }: { proposal: PrivateProposal }) {
   const firestore = useFirestore();
   const { user } = useUser();
 
-  // Create a memoized reference to the public proposal document
   const publicProposalRef = useMemoFirebase(() => {
     if (!firestore) return null;
     return doc(firestore, `proposals/${proposal.id}`);
   }, [firestore, proposal.id]);
 
-  // Use useDoc to get real-time status from the public document
   const { data: publicProposal, isLoading: isStatusLoading } = useDoc<PublicProposal>(publicProposalRef);
 
   const handleDelete = async (proposalId: string) => {
     if (!user || !firestore) return;
     try {
-      const batch = writeBatch(firestore);
-      // Delete from user's private collection
       const privateDocRef = doc(firestore, `users/${user.uid}/proposals`, proposalId);
-      batch.delete(privateDocRef);
-      // Delete from public collection
+      await deleteDoc(privateDocRef);
+      
       const publicDocRef = doc(firestore, 'proposals', proposalId);
-      batch.delete(publicDocRef);
-      await batch.commit();
+      await deleteDoc(publicDocRef);
 
     } catch (error) {
       console.error("Error deleting proposal: ", error);
@@ -225,11 +207,20 @@ function ProposalList() {
   const { data: proposals, isLoading } = useCollection<PrivateProposal>(privateProposalsQuery);
 
   if (isLoading) {
-    return <p>Loading proposals...</p>;
+    return (
+        <Card className="w-full max-w-md mt-8">
+            <CardHeader>
+                <CardTitle>Your Sent Proposals</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <p>Loading proposals...</p>
+            </CardContent>
+        </Card>
+    );
   }
   
   if (!proposals || proposals.length === 0) {
-    return null; // Don't show anything if there are no proposals yet
+    return null;
   }
 
   return (
@@ -246,8 +237,7 @@ function ProposalList() {
   );
 }
 
-
-function HomePageContent() {
+export default function Home() {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
 
@@ -259,19 +249,11 @@ function HomePageContent() {
 
   if (isUserLoading) {
     return (
-      <>
-        <PersonalizeForm user={null} />
-        <div className="w-full max-w-md mt-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>Your Sent Proposals</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p>Loading proposals...</p>
-            </CardContent>
-          </Card>
+      <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-[#fee9f2] to-[#ff69b4] p-4 overflow-auto">
+        <div className="py-8 text-center">
+            <p>Loading user...</p>
         </div>
-      </>
+      </main>
     )
   }
 
@@ -280,21 +262,15 @@ function HomePageContent() {
   }
 
   return (
-    <>
-      <PersonalizeForm user={user} />
-      <ProposalList />
-    </>
-  );
-}
-
-export default function Home() {
-  return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-[#fee9f2] to-[#ff69b4] p-4 overflow-auto">
        <div className="py-8">
         <Suspense>
-          <HomePageContent />
+          <PersonalizeForm user={user} />
+          <ProposalList />
         </Suspense>
       </div>
     </main>
   );
 }
+
+    
