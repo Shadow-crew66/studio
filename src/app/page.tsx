@@ -75,7 +75,7 @@ function ProposalLoader() {
 export default function Home() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-[#ff9a9e] to-[#fecfef] p-4 overflow-hidden">
-      <Suspense fallback={<div>Loading...</div>}>
+      <Suspense>
         <ProposalLoader />
       </Suspense>
     </main>
