@@ -87,12 +87,15 @@ export function Proposal({ from, to, letter, proposalId, senderId }: { from: str
     setShowNoButton(false);
     if (firestore && senderId) {
         const publicProposalRef = doc(firestore, 'proposals', proposalId);
-        // This one was working correctly
-        updateDocumentNonBlocking(publicProposalRef, { status: 'accepted', acceptedAt: new Date().toISOString() });
-  
-        // This is the fix: also update the sender's private copy of the proposal
         const userProposalRef = doc(firestore, `users/${senderId}/proposals`, proposalId);
-        updateDocumentNonBlocking(userProposalRef, { status: 'accepted', acceptedAt: new Date().toISOString() });
+
+        const updatedData = { 
+          status: 'accepted', 
+          acceptedAt: new Date().toISOString() 
+        };
+
+        updateDocumentNonBlocking(publicProposalRef, updatedData);
+        updateDocumentNonBlocking(userProposalRef, updatedData);
     }
   };
 
