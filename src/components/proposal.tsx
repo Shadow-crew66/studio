@@ -46,7 +46,7 @@ export function Proposal({ from, to, letter, proposalId, senderId }: { from: str
   
   const firestore = useFirestore();
 
-  const defaultLetter = `My dearest ${to}, with this ring, all my today and all my tomorrows are yours. Will you make me the happiest person alive?`;
+  const defaultLetter = `With this ring, all my today and all my tomorrows are yours. Will you make me the happiest person alive?`;
 
 
   useEffect(() => {
