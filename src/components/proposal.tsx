@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Confetti from "react-confetti";
 import { Button } from "@/components/ui/button";
 import { useFirestore } from "@/firebase";
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 const BouncingHeart = () => (
@@ -34,7 +34,7 @@ const BouncingHeart = () => (
 
 const fallbackTexts = ["Are you sure?", "Really??", "Think again!", "You're breaking my heart :(", "Last chance!"];
 
-export function Proposal({ from, to, letter, proposalId }: { from: string; to: string; letter?: string, proposalId: string }) {
+export function Proposal({ from, to, letter, proposalId, senderId }: { from: string; to: string; letter?: string, proposalId: string, senderId: string }) {
   const [noClickCount, setNoClickCount] = useState(0);
   const [yesButtonScale, setYesButtonScale] = useState(1);
   const [noButtonText, setNoButtonText] = useState("No");
@@ -85,17 +85,12 @@ export function Proposal({ from, to, letter, proposalId }: { from: string; to: s
   const handleYesClick = async () => {
     setIsYesClicked(true);
     setShowNoButton(false);
-    if (firestore) {
-      const publicProposalRef = doc(firestore, 'proposals', proposalId);
-      updateDocumentNonBlocking(publicProposalRef, { status: 'accepted', acceptedAt: new Date().toISOString() });
-
-      // We also need to update the sender's copy. We need the senderId for that.
-      // The proposal data should contain it.
-      const proposalDoc = await (await fetch(`/api/proposal/${proposalId}`)).json();
-      if(proposalDoc && proposalDoc.senderId) {
-        const userProposalRef = doc(firestore, `users/${proposalDoc.senderId}/proposals`, proposalId);
+    if (firestore && senderId) {
+        const publicProposalRef = doc(firestore, 'proposals', proposalId);
+        updateDocumentNonBlocking(publicProposalRef, { status: 'accepted', acceptedAt: new Date().toISOString() });
+  
+        const userProposalRef = doc(firestore, `users/${senderId}/proposals`, proposalId);
         updateDocumentNonBlocking(userProposalRef, { status: 'accepted', acceptedAt: new Date().toISOString() });
-      }
     }
   };
 

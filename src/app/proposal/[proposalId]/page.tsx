@@ -29,7 +29,7 @@ function ProposalLoader({ proposalId }: { proposalId: string }) {
   }
 
   if (proposal) {
-    return <Proposal from={proposal.senderName} to={proposal.recipientName} letter={proposal.letter} proposalId={proposalId} />;
+    return <Proposal from={proposal.senderName} to={proposal.recipientName} letter={proposal.letter} proposalId={proposalId} senderId={proposal.senderId} />;
   }
 
   return (
@@ -41,10 +41,11 @@ function ProposalLoader({ proposalId }: { proposalId: string }) {
 }
 
 export default function ProposalPage({ params }: { params: { proposalId: string } }) {
+  const { proposalId } = params;
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-[#fee9f2] to-[#ff69b4] p-4 overflow-hidden">
       <Suspense fallback={<div>Loading proposal...</div>}>
-        <ProposalLoader proposalId={params.proposalId} />
+        <ProposalLoader proposalId={proposalId} />
       </Suspense>
     </main>
   );
