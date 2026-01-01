@@ -126,80 +126,21 @@
     ]
   },
   "firestore": {
-    "structure": [
-      {
-        "path": "/users/{userId}",
-        "definition": {
-          "entityName": "User",
-          "schema": {
-            "$ref": "#/backend/entities/User"
-          },
-          "description": "Stores user profiles. Path-based ownership ensures only the user can access their own profile data.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/users/{userId}/proposals/{proposalId}",
-        "definition": {
-          "entityName": "Proposal",
-          "schema": {
-            "$ref": "#/backend/entities/Proposal"
-          },
-          "description": "Stores a private copy of proposals for the logged-in user. Path-based ownership ensures that only the user can access this data.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user who sent or received the proposal."
-            },
-            {
-              "name": "proposalId",
-              "description": "The unique identifier of the proposal."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/proposals/{proposalId}",
-        "definition": {
-            "entityName": "Proposal",
-            "schema": {
-                "$ref": "#/backend/entities/Proposal"
-            },
-            "description": "Stores a public-readable copy of the proposal so the recipient can view it without logging in. The security rules prevent listing or deleting.",
-            "params": [
-                {
-                    "name": "proposalId",
-                    "description": "The unique identifier of the proposal."
-                }
-            ]
-        }
-      },
-      {
-        "path": "/users/{userId}/notifications/{notificationId}",
-        "definition": {
-          "entityName": "Notification",
-          "schema": {
-            "$ref": "#/backend/entities/Notification"
-          },
-          "description": "Stores notifications for a specific user. Path-based ownership ensures only the user can access their notifications. Includes denormalized 'userId' for authorization independence.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user receiving the notification."
-            },
-            {
-              "name": "notificationId",
-              "description": "The unique identifier of the notification."
-            }
-          ]
-        }
-      }
-    ],
-    "reasoning": "The Firestore data structure is designed to ensure authorization independence, clarity, and scalability. It uses path-based ownership for user-related data and denormalization to avoid complex security rules with `get()` calls.  A public `/proposals` collection is introduced to allow recipients to view proposals anonymously, with security rules restricting write access. A private copy of the proposal is kept in `/users/{userId}/proposals` to allow senders to manage their own proposals securely. This hybrid approach supports both public access for the initial interaction and secure, private data management for authenticated users."
+    "/users/{userId}": {
+      "schema": { "$ref": "#/backend/entities/User" },
+      "description": "Stores user profiles. Path-based ownership ensures only the user can access their own profile data."
+    },
+    "/users/{userId}/proposals/{proposalId}": {
+      "schema": { "$ref": "#/backend/entities/Proposal" },
+      "description": "Stores a private copy of proposals for the logged-in user. Path-based ownership ensures that only the user can access this data."
+    },
+    "/proposals/{proposalId}": {
+      "schema": { "$ref": "#/backend/entities/Proposal" },
+      "description": "Stores a public-readable copy of the proposal so the recipient can view it without logging in. The security rules prevent listing or deleting."
+    },
+    "/users/{userId}/notifications/{notificationId}": {
+      "schema": { "$ref": "#/backend/entities/Notification" },
+      "description": "Stores notifications for a specific user. Path-based ownership ensures only the user can access their notifications."
+    }
   }
 }
