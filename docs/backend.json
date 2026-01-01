@@ -122,9 +122,7 @@
   },
   "auth": {
     "providers": [
-      "password",
-      "google.com",
-      "apple.com"
+      "password"
     ]
   },
   "firestore": {
